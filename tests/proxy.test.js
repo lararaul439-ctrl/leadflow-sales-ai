@@ -62,7 +62,7 @@ test('proxy: the secret never appears in any response, whatever upstream does', 
     const headers = JSON.stringify([...res.headers.entries()]);
     assert.ok(!text.includes(TOKEN) || status === 422, 'body leaks at ' + status);
     assert.ok(!headers.includes(TOKEN), 'headers leak at ' + status);
-    assert.ok(!text.includes(URL_UP), 'upstream url leaks at ' + status);
+    assert.ok(!text.includes(new URL(URL_UP).host), 'upstream address leaks at ' + status);
   }
 });
 
@@ -189,7 +189,7 @@ test('proxy: Turnstile - missing, wrong, unreachable and valid tokens', async ()
   const good = await send('good', true, { 'CF-Connecting-IP': '203.0.113.9' });
   assert.equal(good.status, 202);
   const verify = calls[0];
-  assert.match(verify.url, /challenges\.cloudflare\.com\/turnstile\/v0\/siteverify/);
+  assert.equal(verify.url, 'https://challenges.cloudflare.com/turnstile/v0/siteverify');
   const form = String(verify.init.body);
   assert.match(form, /secret=turnstile-secret-for-tests/);
   assert.match(form, /remoteip=203\.0\.113\.9/);

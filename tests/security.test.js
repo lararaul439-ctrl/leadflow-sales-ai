@@ -39,7 +39,7 @@ test('schema: field names are sanitised before being echoed and the list is boun
   evil['<script>alert(1)</script>' + 'x'.repeat(200)] = 1;
   const r = norm(evil);
   assert.equal(r.valid, false);
-  assert.ok(!/<script>/.test(r.errors.join(' ')));
+  assert.ok(!/[<>]/.test(r.errors.join(' ')), 'no markup characters may be echoed');
   assert.ok(r.errors.join(' ').length < 200);
 });
 

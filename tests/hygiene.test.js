@@ -27,6 +27,8 @@ const rel = (f) => path.relative(ROOT, f).split(path.sep).join('/');
 const TEXT_FILES = FILES.filter((f) => !BINARY.test(f));
 const read = (f) => fs.readFileSync(f, 'utf8');
 const exists = (r) => fs.existsSync(path.join(ROOT, r));
+// Escapes every regular-expression metacharacter, including the backslash itself.
+const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ------------------------------------------------------------------ secrets
 const SECRET_PATTERNS = [
@@ -166,7 +168,7 @@ test('hygiene: public text carries no tool attribution banners and no course ref
   for (const f of TEXT_FILES) {
     if (rel(f) === 'tests/hygiene.test.js' || /^workflows\//.test(rel(f))) continue;
     const text = read(f).toLowerCase();
-    for (const [needle, label] of banned) if (new RegExp('\\b' + needle.replace(/[-]/g, '\\-') + '\\b').test(text)) hits.push(rel(f) + ': ' + label);
+    for (const [needle, label] of banned) if (new RegExp('\\b' + escapeRegExp(needle) + '\\b').test(text)) hits.push(rel(f) + ': ' + label);
   }
   assert.deepEqual(hits, []);
 });
@@ -208,7 +210,7 @@ test('hygiene: every relative link and image in the Markdown files resolves', ()
 
 test('hygiene: the changelog has an entry for the current version and the READMEs make no unsupported claims', () => {
   const log = read(path.join(ROOT, 'CHANGELOG.md'));
-  assert.match(log, new RegExp('^## \\[' + core.CONFIG.version.replace(/\./g, '\\.') + '\\]', 'm'));
+  assert.match(log, new RegExp('^## \\[' + escapeRegExp(core.CONFIG.version) + '\\]', 'm'));
   for (const f of ['README.md', 'README.es.md']) {
     const text = read(path.join(ROOT, f));
     assert.ok(!/\b(100%|bulletproof|unhackable|GDPR[- ]compliant|RGPD[- ]compliant|military[- ]grade|cumple (con )?el RGPD)\b/i.test(text), f + ' makes an unsupported claim');
