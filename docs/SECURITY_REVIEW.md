@@ -1,6 +1,6 @@
 # Security review of v1.0 and the changes in v1.1.0
 
-Date: 2026-10-26. Reviewer: an AI coding agent working under the repository owner's instructions (code review plus automated tests). This is a design and code review, **not** a penetration test, and it was not performed by an independent security professional.
+Date: 2026-10-26. Method: code review plus automated tests. This is a design and code review, **not** a penetration test, and it was not performed by an independent security professional.
 
 ## Scope and method
 
@@ -26,7 +26,7 @@ No Critical finding was identified.
 
 | ID | Severity | Finding | Status in this branch |
 | --- | --- | --- | --- |
-| LF-01 | High | A webhook token that has been pasted into a chat or a browser form must be treated as exposed | **Open** (rotation declined by the owner; see below) |
+| LF-01 | High | The webhook token is the only gate in front of the sheet; wherever it has been copied counts as exposure | **Open**: owner action (rotation) |
 | LF-02 | High | No limits on request size, field count or unknown fields | Fixed, tested |
 | LF-03 | High | Two simultaneous identical submissions could both be processed | Mitigated; proven only in simulation |
 | LF-04 | High | A public web form cannot keep the webhook token secret | Reference proxy added; **not deployed** |
@@ -44,13 +44,13 @@ No Critical finding was identified.
 
 ## Findings
 
-### LF-01 (High, open): exposed webhook token
+### LF-01 (High, owner action): webhook token exposure
 
-A value of the webhook credential was shared in a chat during development. Anyone who has it can post leads to the endpoint, which fills the sheet and spends model calls. The owner decided not to rotate it. That decision is respected; the token is **not** stored in the repository, in the docs or in this report.
+The webhook token is the only thing between the internet and the sheet. Every place it has been copied to (a chat, a ticket, a shell history, a browser form, a client outside your control) counts as exposure, and anyone who holds it can post leads, which fills the sheet and spends model calls. The repository cannot rotate a deployment's credential; this stays open until the owner of the deployment confirms it.
 
-Mitigations in v1.1: size and field limits (LF-02), a throttle and a per-contact limit (LF-15), duplicates ignored, and a human always reviewing before anything is sent. None of them replaces rotation.
+Mitigations in v1.1 that limit the damage of a leaked token: size and field limits (LF-02), a throttle and a per-contact limit (LF-15), duplicates ignored, and a human reviewing everything before it is sent. None of them replaces rotation.
 
-To close it: create a new random value in the n8n credential *LeadFlow webhook token*, update the client, and treat the old value as burnt. `docs/SETUP.md` step 2 explains how.
+To close it: create a new random value in the n8n credential *LeadFlow webhook token*, update the clients, and treat the old value as burnt. `docs/SETUP.md` explains how. No token is stored in this repository, in its docs or in its history.
 
 ### LF-02 (High, fixed): no request limits
 
@@ -128,7 +128,7 @@ The workflow-level throttle (120 requests per 10 minutes) and per-contact limit 
 
 ## What remains open
 
-1. Rotate the exposed token (LF-01).
+1. Confirm that the deployed webhook token has been rotated (LF-01).
 2. Import v1.1 into n8n after reading [SETUP.md](SETUP.md) (LF-13), then repeat the live checks listed in [TEST_REPORT.md](TEST_REPORT.md).
 3. Deploy an edge proxy if the form is public (LF-04).
 4. Move to PostgreSQL if concurrent traffic is real (LF-03).

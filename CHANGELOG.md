@@ -44,7 +44,7 @@ Security hardening and professionalisation. The workflow export changed shape: *
 ### Not done in this release (see the open items in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md))
 
 - The published workflow was not upgraded.
-- The webhook token that was shared in a chat has not been rotated.
+- Rotation of the deployed webhook token is an owner action (see LF-01).
 - Google Sheets append atomicity and the Groq call were not re-verified for v1.1.
 - The proxy and the SQL option are not deployed.
 
