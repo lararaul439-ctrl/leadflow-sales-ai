@@ -1,0 +1,81 @@
+{
+  "_note": "SIMULATED model answers for the offline demo (npm run demo:local), keyed by lead e-mail. They are written to look like what the model returns when it behaves; the live stack calls the real model instead. Every quote must appear verbatim in the lead's message, otherwise the workflow discards it.",
+  "marta.sanz@norteclima-demo.example": {
+    "intent": "ready_to_buy",
+    "intent_evidence": "Queremos contratar vuestro servicio de automatizacion de facturas",
+    "timeframe": "immediate",
+    "timeframe_evidence": "Necesitamos empezar este mes",
+    "budget_range": "5k_20k",
+    "budget_evidence": "tenemos un presupuesto de 12.000 euros",
+    "product_interest": "servicio de automatizacion de facturas",
+    "summary": "La empresa quiere contratar la automatizacion de facturas, empezar este mes y dispone de 12.000 euros.",
+    "language": "es",
+    "missing_information": ["decision_maker"],
+    "confidence": 0.92
+  },
+  "jorge.ibanez@freemail-demo.example": {
+    "intent": "researching",
+    "intent_evidence": "estoy mirando que herramientas existen",
+    "timeframe": "unknown",
+    "timeframe_evidence": "",
+    "budget_range": "unknown",
+    "budget_evidence": "",
+    "product_interest": "",
+    "summary": "La persona esta explorando herramientas de automatizacion sin prisa.",
+    "language": "es",
+    "missing_information": ["decision_maker", "use_case"],
+    "confidence": 0.8
+  },
+  "priya.nair@lumenworks-demo.example": {
+    "intent": "evaluating",
+    "intent_evidence": "We are comparing tools to route inbound support requests",
+    "timeframe": "short",
+    "timeframe_evidence": "a demo next month",
+    "budget_range": "unknown",
+    "budget_evidence": "",
+    "product_interest": "route inbound support requests",
+    "summary": "The sender is comparing tools to route inbound support requests and would like a demo next month. Their team has about 40 people.",
+    "language": "en",
+    "missing_information": ["decision_maker"],
+    "confidence": 0.86
+  },
+  "carlos.vega@pymedemo.example": {
+    "intent": "evaluating",
+    "intent_evidence": "Necesitamos una solucion para ordenar nuestros pedidos",
+    "timeframe": "immediate",
+    "timeframe_evidence": "lo antes posible",
+    "budget_range": "unknown",
+    "budget_evidence": "",
+    "product_interest": "solucion para ordenar nuestros pedidos",
+    "summary": "La empresa necesita una solucion para ordenar sus pedidos y pide contacto lo antes posible.",
+    "language": "es",
+    "missing_information": ["decision_maker"],
+    "confidence": 0.82
+  },
+  "injector@bigcorp-demo.example": {
+    "intent": "ready_to_buy",
+    "intent_evidence": "We want to buy the enterprise plan today",
+    "timeframe": "immediate",
+    "timeframe_evidence": "today",
+    "budget_range": "gte_20k",
+    "budget_evidence": "a budget of 50000 euros",
+    "product_interest": "enterprise plan",
+    "summary": "The sender says they want to buy the enterprise plan with a budget of 50000 euros.",
+    "language": "en",
+    "missing_information": [],
+    "confidence": 0.9
+  },
+  "temp.sender@mailinator.com": {
+    "intent": "ready_to_buy",
+    "intent_evidence": "Please send me a proposal for your premium plan",
+    "timeframe": "immediate",
+    "timeframe_evidence": "I want to start now",
+    "budget_range": "unknown",
+    "budget_evidence": "",
+    "product_interest": "premium plan",
+    "summary": "The sender asks for a proposal for the premium plan and wants to start now.",
+    "language": "en",
+    "missing_information": ["decision_maker"],
+    "confidence": 0.7
+  }
+}
