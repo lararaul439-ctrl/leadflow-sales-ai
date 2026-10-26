@@ -1,6 +1,6 @@
 # Test report
 
-Version 1.1.0, run on 2026-10-26 with Node 22.23.4 on Linux (`node --test`, no network, about 50 seconds, most of it the exhaustive concurrency suite). Result at the commit that introduced this report: **227 tests, 227 passed, 0 failed, 0 skipped**; ESLint reported no findings; `node scripts/build-workflow.js --check` confirmed that every generated file matches `src/`. On GitHub, the pull request run for commit `aed75e2` succeeded: tests on Node 20, 22 and 24, lint and dependency audit, and CodeQL (one run each; later commits get their own runs, shown on the pull request).
+Version 1.1.0, run on 2026-10-26 with Node 22.23.4 on Linux (`node --test`, no network, about 50 seconds, most of it the exhaustive concurrency suite). Result at the latest commit on this branch: **228 tests, 228 passed, 0 failed, 0 skipped**; ESLint reported no findings; `node scripts/build-workflow.js --check` confirmed that every generated file matches `src/`. On GitHub, the pull request run for commit `aed75e2` succeeded: tests on Node 20, 22 and 24, lint and dependency audit, and CodeQL (one run each; later commits get their own runs, shown on the pull request).
 
 ![Test suites](images/test-suites.png)
 
@@ -27,7 +27,7 @@ Version 1.1.0, run on 2026-10-26 with Node 22.23.4 on Linux (`node --test`, no n
 | `tests/resilience.test.js` | 12 | Simulated (fault injection) | Sheets failures at every stage, 15 model failure modes, bounded retries, partial failures, error handler, a 200-lead soak with random faults |
 | `tests/proxy.test.js` | 15 | Mocks | The Worker: origins, size, whitelist, strict consent, honeypot, challenge, relay of upstream answers, no leakage |
 | `tests/db.test.js` | 12 | SQLite stand-in | Unique constraint semantics, compare-and-set recovery, threads racing for the same submissions |
-| `tests/demo.test.js` | 6 | Simulated | Demo leads behave as documented; `demo/expected-output.md` is up to date |
+| `tests/demo.test.js` | 7 | Simulated | Demo leads behave as documented; `demo/expected-output.md` is up to date; Markdown cells cannot be broken out of with a backslash or a pipe |
 | `tests/runtime-harness.test.js` | 3 | Local Node | The runtime harness passes and detects a mutated scoring table; safe to embed |
 | `tests/hygiene.test.js` | 17 | Static | No credential-shaped strings, sheet ids or real URLs; fictional domains only; CI least privilege and pinned actions; no dependencies; documentation set complete; links resolve; diagram sources up to date |
 
