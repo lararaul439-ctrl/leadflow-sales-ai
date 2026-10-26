@@ -65,7 +65,7 @@ function buildResult() {
   return { round1, round2, counts: { before, after }, badAi, rows: { leads: sheet.tabs.leads.length, tasks: sheet.tabs.seguimiento.length, errors: sheet.tabs.errores.length, claims: sheet.tabs.claims.length } };
 }
 
-const esc = (s) => String(s === undefined || s === null || s === '' ? ' ' : s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const esc = (s) => String(s === undefined || s === null || s === '' ? ' ' : s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const table = (head, rows) => ['| ' + head.join(' | ') + ' |', '| ' + head.map(() => '---').join(' | ') + ' |'].concat(rows.map((r) => '| ' + r.map(esc).join(' | ') + ' |')).join('\n');
 
 function markdown(res) {

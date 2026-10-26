@@ -59,3 +59,16 @@ test('demo:local - no broken or hostile model answer ever yields a confident, un
     if (c.task === 'created') assert.equal(c.review, 'sí', c.case + ': a suspicious answer waits for a person');
   }
 });
+
+test('demo:local - Markdown cells escape the backslash before the pipe, so a value cannot break out of its table cell', () => {
+  const res = demo.buildResult();
+  const row = Object.assign({}, res.round1[0], { lead: 'a\\|b | c\nd' });
+  const md = demo.markdown(Object.assign({}, res, { round1: [row].concat(res.round1.slice(1)) }));
+  const lines = md.split('\n');
+  const hostile = lines.find((l) => l.startsWith('| a\\'));
+  const normal = lines.find((l) => l.startsWith('| ' + res.round1[1].lead));
+  assert.ok(hostile && normal, 'both rows are present');
+  assert.ok(hostile.startsWith('| a\\\\\\|b \\| c d |'), 'backslash, pipe and newline are neutralised');
+  const cells = (l) => l.split(/(?<!\\)\|/).length;
+  assert.equal(cells(hostile), cells(normal), 'the hostile value stays inside one cell');
+});
