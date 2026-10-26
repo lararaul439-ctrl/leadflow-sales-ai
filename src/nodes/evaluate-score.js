@@ -3,7 +3,7 @@ const now = new Date().toISOString();
 const bases = $('Preparar petición IA').all();
 return $input.all().map(function (resp, i) {
   const lead = bases[i].json.lead;
-  const r = evaluateAi(resp.json, lead, { now: now });
+  const r = evaluateAi(resp.json, lead, { now: now, executionId: $execution.id });
   return {
     json: {
       lead_row: r.leadRow,

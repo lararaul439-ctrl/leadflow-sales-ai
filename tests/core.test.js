@@ -466,7 +466,7 @@ test('evaluate: cold lead becomes baja and asks for the missing information in t
   const lead = norm(F.COLD).lead;
   const r = core.evaluateAi(F.aiResponse(F.COLD_AI), lead, { now: NOW });
   assert.equal(r.leadRow.priority, 'baja');
-  assert.equal(r.leadRow.score, 7);
+  assert.equal(r.leadRow.score, 12, 'researching (7) + business e-mail domain (5); the fictional domain is not a free-mail provider');
   assert.equal(r.taskRow.task_type, 'nutrir');
   assert.equal(r.taskRow.due_at, '2026-10-29T09:00:00.000Z');
   assert.ok(r.leadRow.missing_information.includes('budget_range'));

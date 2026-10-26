@@ -81,8 +81,10 @@ function mappingFor(columns, ref, keys) {
   };
 }
 
+const SHEETS_RETRY = { retryOnFail: true, maxTries: 3, waitBetweenTries: 2000 };
+
 function upsertNode(name, tab, columns, ref, key, position, notes) {
-  return {
+  return Object.assign({
     name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position, notes,
     parameters: {
       resource: 'sheet', operation: 'appendOrUpdate', documentId: docRef(), sheetName: tabRef(tab),
@@ -90,7 +92,19 @@ function upsertNode(name, tab, columns, ref, key, position, notes) {
       options: { cellFormat: 'RAW' }
     },
     credentials: SHEETS_CRED
-  };
+  }, SHEETS_RETRY);
+}
+
+function appendNode(name, tab, columns, ref, position, notes) {
+  return Object.assign({
+    name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position, notes,
+    parameters: {
+      resource: 'sheet', operation: 'append', documentId: docRef(), sheetName: tabRef(tab),
+      columns: mappingFor(columns, ref, []),
+      options: { cellFormat: 'RAW' }
+    },
+    credentials: SHEETS_CRED
+  }, SHEETS_RETRY);
 }
 
 const cond = (left, op, right) => ({
@@ -125,16 +139,18 @@ function buildWorkflow(opts) {
         mode: 'manual', includeOtherFields: true, options: {},
         assignments: { assignments: [
           { id: uid('cfg-sheet').slice(0, 18), name: 'sheet_id', value: 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE', type: 'string' },
-          { id: uid('cfg-mode').slice(0, 18), name: 'mode', value: '={{ $json.body !== undefined ? "webhook" : "retry" }}', type: 'string' }
+          { id: uid('cfg-mode').slice(0, 18), name: 'mode', value: '={{ $json.body !== undefined ? "webhook" : "retry" }}', type: 'string' },
+          { id: uid('cfg-rate-window').slice(0, 18), name: 'rate_window_seconds', value: CONFIG.rate.windowSeconds, type: 'number' },
+          { id: uid('cfg-rate-max').slice(0, 18), name: 'rate_max_requests', value: CONFIG.rate.maxRequests, type: 'number' }
         ] }
       }
     },
     ifNode('¿Envío web?', cond('={{ $json.mode }}', { type: 'string', operation: 'equals' }, 'webhook'), [520, 280]),
     codeNode('Validar y normalizar', 'validate-normalize.js', [780, 120], 'Validates required fields, cleans text, masks payment/ID numbers, flags injection and builds stable ids.'),
     ifNode('¿Lead válido?', cond('={{ $json.valid }}', { type: 'boolean', operation: 'true', singleValue: true }), [1040, 120]),
-    respondNode('Responder error de validación', '={{ JSON.stringify({ ok: false, errors: $json.errors }) }}', 422, [1300, 0]),
+    respondNode('Responder error de validación', '={{ JSON.stringify({ ok: false, errors: $json.errors }) }}', '={{ $json.http_status || 422 }}', [1300, 0]),
     {
-      name: 'Buscar historial del lead', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [1300, 240], alwaysOutputData: true,
+      name: 'Buscar historial del lead', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [1300, 240], alwaysOutputData: true, ...SHEETS_RETRY,
       parameters: {
         resource: 'sheet', operation: 'read', documentId: docRef(), sheetName: tabRef('leads'),
         filtersUI: { values: [{ lookupColumn: 'lead_id', lookupValue: '={{ $("Validar y normalizar").first().json.lead.lead_id }}' }] },
@@ -144,18 +160,43 @@ function buildWorkflow(opts) {
     },
     codeNode('Decidir duplicado', 'decide-duplicate.js', [1560, 240], 'Exact submission match => ignore. Same email with a new message => process and flag contacto_repetido.'),
     ifNode('¿Procesar?', cond('={{ $json.action }}', { type: 'string', operation: 'equals' }, 'process'), [1820, 240]),
-    respondNode('Responder duplicado', '={{ JSON.stringify($json.action === "conflict" ? { ok: false, error: "identifier_conflict" } : { ok: true, duplicate: true }) }}', '={{ $json.action === "conflict" ? 409 : 200 }}', [2080, 120]),
-    upsertNode('Registrar recibido', 'leads', COLUMNS.leads, '$json.row', 'submission_id', [2080, 360], 'Writes the lead as "recibido" before calling the AI, so a crash leaves a visible, recoverable record.'),
-    respondNode('Responder aceptado', '={{ JSON.stringify({ ok: true, status: "accepted", submission_id: $json.submission_id }) }}', 202, [2340, 240]),
+    respondNode('Responder duplicado',
+      '={{ JSON.stringify($json.action === "conflict" ? { ok: false, error: "identifier_conflict" } : ($json.reason === "limite_por_contacto" ? { ok: false, error: "rate_limited" } : ($json.reason === "ganador_pendiente" ? { ok: false, error: "in_progress", retry_after_seconds: 30 } : { ok: true, duplicate: true }))) }}',
+      '={{ $json.action === "conflict" ? 409 : ($json.reason === "limite_por_contacto" ? 429 : ($json.reason === "ganador_pendiente" ? 503 : 200)) }}', [3640, 120]),
     {
-      name: 'Leer filas para reintento', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [780, 560],
+      name: 'Comprobar ganador', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [3120, 120], alwaysOutputData: true, ...SHEETS_RETRY,
+      notes: 'Only runs when this execution lost the claim: checks that the winner really stored the lead.',
+      parameters: {
+        resource: 'sheet', operation: 'read', documentId: docRef(), sheetName: tabRef('leads'),
+        filtersUI: { values: [{ lookupColumn: 'lead_id', lookupValue: '={{ $("Validar y normalizar").first().json.lead.lead_id }}' }] },
+        options: {}
+      },
+      credentials: SHEETS_CRED
+    },
+    codeNode('Confirmar ganador', 'confirm-winner.js', [3380, 120], 'Answers "duplicate" only if the winner stored the lead; otherwise 503 so the caller retries (no false success).'),
+    appendNode('Reclamar envío', 'claims', COLUMNS.claims, '$json.claim', [2080, 360], 'Appends one claim row (atomic insert). Simultaneous identical submissions each append one; only the first wins.'),
+    {
+      name: 'Leer reclamaciones', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [2340, 360], alwaysOutputData: true, ...SHEETS_RETRY,
+      parameters: {
+        resource: 'sheet', operation: 'read', documentId: docRef(), sheetName: tabRef('claims'),
+        filtersUI: { values: [{ lookupColumn: 'submission_id', lookupValue: '={{ $("Decidir duplicado").first().json.lead.submission_id }}' }] },
+        options: {}
+      },
+      credentials: SHEETS_CRED
+    },
+    codeNode('Resolver reclamación', 'resolve-claim.js', [2600, 360], 'The first eligible claim in sheet order wins. If this execution cannot see its own claim it fails loudly so the caller retries.'),
+    ifNode('¿Reclamación ganada?', cond('={{ $json.won }}', { type: 'boolean', operation: 'true', singleValue: true }), [2860, 360]),
+    upsertNode('Registrar recibido', 'leads', COLUMNS.leads, '$json.row', 'submission_id', [3120, 360], 'Writes the lead as "recibido" before calling the AI, so a crash leaves a visible, recoverable record.'),
+    respondNode('Responder aceptado', '={{ JSON.stringify({ ok: true, status: "accepted", submission_id: $json.submission_id }) }}', 202, [3380, 240]),
+    {
+      name: 'Leer filas para reintento', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position: [780, 560], ...SHEETS_RETRY,
       parameters: { resource: 'sheet', operation: 'read', documentId: docRef(), sheetName: tabRef('leads'), options: {} },
       credentials: SHEETS_CRED
     },
     codeNode('Preparar reintentos', 'prepare-retries.js', [1040, 560], 'Selects error_ia / error_validacion_ia rows and stuck "recibido" rows under the retry limit.'),
-    codeNode('Preparar petición IA', 'prepare-ai-request.js', [2600, 360], 'Builds the request. Only the cleaned message is sent: no name, email, phone or company.'),
+    codeNode('Preparar petición IA', 'prepare-ai-request.js', [3640, 360], 'Builds the request. Only the cleaned message is sent: no name, email, phone or company.'),
     {
-      name: 'Analizar con IA', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.5, position: [2860, 360],
+      name: 'Analizar con IA', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.5, position: [3900, 360],
       onError: 'continueRegularOutput', retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
       notes: 'Groq, OpenAI-compatible. 30 s timeout, 3 tries, then the lead is saved as error_ia.',
       parameters: {
@@ -166,16 +207,18 @@ function buildWorkflow(opts) {
       },
       credentials: { httpHeaderAuth: { id: 'REPLACE_WITH_YOUR_CREDENTIAL', name: 'Groq API key' } }
     },
-    codeNode('Evaluar y puntuar', 'evaluate-score.js', [3120, 360], 'Validates the model answer, applies the explicit scoring rules and builds the lead row, the follow-up task and the error row.'),
-    ifNode('¿Hay tarea?', cond('={{ $json.has_task }}', { type: 'boolean', operation: 'true', singleValue: true }), [3380, 360]),
-    upsertNode('Guardar tarea', 'seguimiento', COLUMNS.seguimiento, '$json.task_row', 'task_id', [3640, 240], 'Follow-up task with a draft for human approval. Nothing is ever sent.'),
-    upsertNode('Guardar lead', 'leads', COLUMNS.leads, '$("Evaluar y puntuar").item.json.lead_row', 'submission_id', [3900, 360], 'Final lead state, written after the task so a failed task write leaves the lead retryable.'),
-    ifNode('¿Hay error?', cond('={{ $("Evaluar y puntuar").item.json.has_error }}', { type: 'boolean', operation: 'true', singleValue: true }), [4160, 360]),
-    upsertNode('Registrar error', 'errores', COLUMNS.errores, '$("Evaluar y puntuar").item.json.error_row', 'error_id', [4420, 360], 'Bounded error log: e-mail addresses are masked.'),
+    codeNode('Evaluar y puntuar', 'evaluate-score.js', [4160, 360], 'Validates the model answer, applies the explicit scoring rules and builds the lead row, the follow-up task and the error row.'),
+    ifNode('¿Hay tarea?', cond('={{ $json.has_task }}', { type: 'boolean', operation: 'true', singleValue: true }), [4420, 360]),
+    upsertNode('Guardar tarea', 'seguimiento', COLUMNS.seguimiento, '$json.task_row', 'task_id', [4680, 240], 'Follow-up task with a draft for human approval. Nothing is ever sent.'),
+    upsertNode('Guardar lead', 'leads', COLUMNS.leads, '$("Evaluar y puntuar").item.json.lead_row', 'submission_id', [4940, 360], 'Final lead state, written after the task so a failed task write leaves the lead retryable.'),
+    ifNode('¿Hay error?', cond('={{ $("Evaluar y puntuar").item.json.has_error }}', { type: 'boolean', operation: 'true', singleValue: true }), [5200, 360]),
+    upsertNode('Registrar error', 'errores', COLUMNS.errores, '$("Evaluar y puntuar").item.json.error_row', 'error_id', [5460, 360], 'Bounded error log: e-mail addresses are masked.'),
     sticky('Nota: configuración',
-      '## Setup (see docs/SETUP.md)\n1. Create the Google Sheet with the tabs `leads`, `seguimiento`, `errores` (CSV headers in `templates/`).\n2. Paste its ID in the **Configuración** node.\n3. Select your credentials: Google Sheets, Groq (Header Auth: `Authorization: Bearer <key>`) and the webhook token (Header Auth).\n4. Publish, then POST a lead.', [-40, -260], 520, 230),
+      '## Setup (see docs/SETUP.md)\n1. Create the Google Sheet with the tabs `leads`, `seguimiento`, `errores`, `claims` (CSV headers in `templates/`).\n2. Paste its ID in the **Configuración** node.\n3. Select your credentials: Google Sheets, Groq (Header Auth: `Authorization: Bearer <key>`) and the webhook token (Header Auth).\n4. Publish, then POST a lead.', [-40, -260], 520, 230),
     sticky('Nota: seguridad',
-      '## Safety design\n- Lead text is untrusted data: cleaned, masked and wrapped in a tag; injection phrases are flagged.\n- The model only extracts signals and must quote evidence that exists in the message.\n- Priority comes from explicit rules in code, never from the model.\n- No node sends email. Follow-ups are tasks pending approval.', [1000, -260], 520, 230)
+      '## Safety design\n- Strict request schema: unknown fields, oversized bodies and bad types are rejected (422/413); a best-effort throttle answers 429.\n- Lead text is untrusted data: cleaned, masked, redacted of personal data and wrapped in a tag; injection phrases are flagged.\n- The model only extracts signals and must quote evidence that exists in the message.\n- Priority comes from explicit rules in code, never from the model.\n- No node sends email. Follow-ups are tasks pending approval.', [1000, -260], 560, 260),
+    sticky('Nota: concurrencia',
+      '## Simultaneous identical requests\nEach execution appends a claim row, re-reads the claims and only the first eligible claim continues (insert-then-verify). This narrows the race on Google Sheets; it is not a database transaction. See docs/CONCURRENCY.md.', [2060, 520], 700, 190)
   ];
 
   const link = (from, to, outIndex, inIndex) => ({ from, to, out: outIndex || 0, in: inIndex || 0 });
@@ -190,8 +233,15 @@ function buildWorkflow(opts) {
     link('¿Lead válido?', 'Responder error de validación', 1),
     link('Buscar historial del lead', 'Decidir duplicado'),
     link('Decidir duplicado', '¿Procesar?'),
-    link('¿Procesar?', 'Registrar recibido', 0),
+    link('¿Procesar?', 'Reclamar envío', 0),
     link('¿Procesar?', 'Responder duplicado', 1),
+    link('Reclamar envío', 'Leer reclamaciones'),
+    link('Leer reclamaciones', 'Resolver reclamación'),
+    link('Resolver reclamación', '¿Reclamación ganada?'),
+    link('¿Reclamación ganada?', 'Registrar recibido', 0),
+    link('¿Reclamación ganada?', 'Comprobar ganador', 1),
+    link('Comprobar ganador', 'Confirmar ganador'),
+    link('Confirmar ganador', 'Responder duplicado'),
     link('Registrar recibido', 'Responder aceptado'),
     link('Registrar recibido', 'Preparar petición IA'),
     link('Leer filas para reintento', 'Preparar reintentos'),
@@ -235,9 +285,71 @@ function buildWorkflow(opts) {
     pinData: {},
     connections,
     active: false,
-    settings: { executionOrder: 'v1', saveDataSuccessExecution: o.saveSuccess, saveDataErrorExecution: 'all', saveManualExecutions: o.saveSuccess === 'all' },
+    settings: { executionOrder: 'v1', saveDataSuccessExecution: o.saveSuccess, saveDataErrorExecution: 'all', saveManualExecutions: o.saveSuccess === 'all', executionTimeout: 240 },
     meta: { templateCredsSetupCompleted: false, version: CONFIG.version },
     tags: []
+  };
+}
+
+function buildErrorHandler() {
+  const nodes = [
+    { name: 'Error Trigger', type: 'n8n-nodes-base.errorTrigger', typeVersion: 1, position: [0, 0], parameters: {}, notes: 'Runs when LeadFlow Sales AI fails. Set this workflow as the "Error workflow" in the settings of the main workflow.' },
+    {
+      name: 'Configuración', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [260, 0], notes: 'Paste the same Google Sheet ID as in the main workflow.',
+      parameters: { mode: 'manual', includeOtherFields: true, options: { }, assignments: { assignments: [{ id: uid('eh-cfg-sheet').slice(0, 18), name: 'sheet_id', value: 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE', type: 'string' }] } }
+    },
+    codeNode('Construir fila de error', 'error-handler.js', [520, 0], 'Builds a bounded error row: failing node, short message, execution id. No request body, no stack trace.'),
+    appendNode('Registrar ejecución fallida', 'errores', COLUMNS.errores, '$json', [780, 0], 'Appends the row to the errores tab.')
+  ];
+  nodes[3].parameters.documentId = docRef();
+  const connections = {
+    'Error Trigger': { main: [[{ node: 'Configuración', type: 'main', index: 0 }]] },
+    'Configuración': { main: [[{ node: 'Construir fila de error', type: 'main', index: 0 }]] },
+    'Construir fila de error': { main: [[{ node: 'Registrar ejecución fallida', type: 'main', index: 0 }]] }
+  };
+  return {
+    name: 'LeadFlow Sales AI - error handler',
+    nodes: nodes.map((n) => {
+      const out = { parameters: n.parameters, id: uid('eh|' + n.name), name: n.name, type: n.type, typeVersion: n.typeVersion, position: n.position };
+      if (n.credentials) out.credentials = n.credentials;
+      if (n.notes) out.notes = n.notes;
+      ['retryOnFail', 'maxTries', 'waitBetweenTries'].forEach((k) => { if (n[k] !== undefined) out[k] = n[k]; });
+      return out;
+    }),
+    pinData: {},
+    connections,
+    active: false,
+    settings: { executionOrder: 'v1', saveDataSuccessExecution: 'none', saveDataErrorExecution: 'none', saveManualExecutions: false },
+    meta: { templateCredsSetupCompleted: false, version: CONFIG.version },
+    tags: []
+  };
+}
+
+function requestSchema() {
+  const L = CONFIG.limits;
+  const str = (max, extra) => Object.assign({ type: 'string', maxLength: max }, extra || {});
+  return {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'LeadFlow Sales AI - lead request body',
+    description: 'Strict request schema enforced by the "Validar y normalizar" node. Generated by scripts/build-workflow.js from src/lead-core.js.',
+    type: 'object',
+    additionalProperties: false,
+    maxProperties: L.max_keys,
+    required: ['full_name', 'email', 'message'],
+    properties: {
+      full_name: str(L.full_name, { minLength: CONFIG.minLengths.full_name }),
+      email: str(L.email, { format: 'email' }),
+      message: str(L.message * 4, { minLength: CONFIG.minLengths.message, description: 'Cleaned and truncated to ' + L.message + ' characters.' }),
+      company: str(L.company),
+      phone: { oneOf: [str(L.phone), { type: 'integer' }] },
+      source: str(L.source),
+      budget_range: { type: 'string', enum: CONFIG.enums.budget_range },
+      timeframe: { type: 'string', enum: CONFIG.enums.timeframe },
+      company_size: { type: 'string', enum: CONFIG.enums.company_size },
+      consent_to_contact: { description: 'Consent as DECLARED by the caller. It is never treated as verified.', oneOf: [{ type: 'boolean' }, { type: 'string', enum: ['true', 'yes', 'si', 'sí', '1', 'on', 'y', 'accepted', 'false', 'no', '0', 'off', 'n', ''] }] },
+      consent_notice_version: str(L.consent_notice_version, { pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$' }),
+      consent_given_at: str(40, { description: 'ISO 8601 date or date-time supplied by the form back end. Ignored if in the future or older than 366 days.' })
+    }
   };
 }
 
@@ -248,12 +360,16 @@ function csvTemplates() {
 }
 
 function outputs() {
-  const files = { 'workflows/leadflow-sales-ai.json': JSON.stringify(buildWorkflow(), null, 2) + '\n' };
+  const files = {
+    'workflows/leadflow-sales-ai.json': JSON.stringify(buildWorkflow(), null, 2) + '\n',
+    'workflows/leadflow-sales-ai-error-handler.json': JSON.stringify(buildErrorHandler(), null, 2) + '\n',
+    'schemas/lead-request.schema.json': JSON.stringify(requestSchema(), null, 2) + '\n'
+  };
   Object.assign(files, csvTemplates());
   return files;
 }
 
-module.exports = { buildWorkflow, buildCode, parseRegions, outputs, uid };
+module.exports = { buildWorkflow, buildErrorHandler, requestSchema, buildCode, parseRegions, outputs, uid };
 
 if (require.main === module) {
   const files = outputs();

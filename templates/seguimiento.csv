@@ -1,1 +1,1 @@
-task_id,submission_id,lead_id,created_at,due_at,priority,score,task_type,status,assignee,human_review_required,review_notes,full_name,email,company,phone,summary,product_interest,missing_information,draft_subject,draft_body
+task_id,submission_id,lead_id,created_at,due_at,priority,score,task_type,status,assignee,human_review_required,review_notes,full_name,email,company,phone,summary,product_interest,missing_information,consent_evidence,draft_subject,draft_body
