@@ -84,6 +84,17 @@ module.exports = [
     rules: { 'no-new-func': 'off' }
   },
   {
+    // The runtime harness is the body of an n8n Code node: it uses the n8n globals and, by design, compiles the
+    // generated node code with new Function() to run it exactly as n8n would.
+    files: ['tests/live/*.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: Object.assign({}, nodeGlobals, n8nGlobals) },
+    rules: Object.assign({}, rules, { 'no-new-func': 'off' })
+  },
+  {
+    files: ['tests/runtime-harness.test.js'],
+    rules: { 'no-new-func': 'off' }
+  },
+  {
     // fixtures and tests that exercise hostile input legitimately contain odd literals
     files: ['tests/**/*.js'],
     rules: { 'no-prototype-builtins': 'off' }
