@@ -855,9 +855,20 @@ function parseJsonContent(content) {
 function foldForMatch(s) {
   return normForMatch(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
+// A quote may skip words with "..." or "…" (a real model answer did: "<start> ... <end>"). Every fragment
+// must still appear verbatim in the message, in the same order, so nothing can be made up.
+var EVIDENCE_TRIM_RE = /^[\s"'“”‘’«».…]+|[\s"'“”‘’«».…]+$/g;
 function evidenceFound(evidence, messageNorm) {
-  var ev = foldForMatch(String(evidence || '').replace(/^[\s"'“”‘’«».…]+|[\s"'“”‘’«».…]+$/g, ''));
-  return ev.length >= 4 && messageNorm.indexOf(ev) >= 0;
+  var parts = String(evidence || '').replace(EVIDENCE_TRIM_RE, '').split(/\s*(?:\.{3,}|…)\s*/);
+  if (parts.length > 4) { return false; }
+  var from = 0;
+  for (var i = 0; i < parts.length; i++) {
+    var ev = foldForMatch(parts[i].replace(EVIDENCE_TRIM_RE, ''));
+    var at = ev.length >= 4 ? messageNorm.indexOf(ev, from) : -1;
+    if (at < 0) { return false; }
+    from = at + ev.length;
+  }
+  return parts.length > 0;
 }
 
 function numbersIn(text) {

@@ -28,7 +28,7 @@ No Critical finding was identified.
 | --- | --- | --- | --- |
 | LF-01 | High | The webhook token is the only gate in front of the sheet; wherever it has been copied counts as exposure | **Open**: owner action (rotation) |
 | LF-02 | High | No limits on request size, field count or unknown fields | Fixed, tested |
-| LF-03 | High | Two simultaneous identical submissions could both be processed | Mitigated; proven only in simulation |
+| LF-03 | High | Two simultaneous identical submissions could both be processed | Mitigated; simulated, plus a small live run |
 | LF-04 | High | A public web form cannot keep the webhook token secret | Reference proxy added; **not deployed** |
 | LF-05 | Medium | Personal data written inside the free-text message reached the AI provider | Fixed, tested |
 | LF-06 | Medium | Prompt-injection detection looked only at plain text | Improved, tested; not a guarantee |
@@ -66,7 +66,9 @@ Google Sheets has no unique constraint. Two executions that read the history bef
 
 Verified: interleaved executions in a simulator, including crashes of the winner (`tests/concurrency.test.js`); the SQL option on a SQLite stand-in (`tests/db.test.js`).
 
-**Not verified:** that appends and reads on a real Google Sheet behave as the arbitration assumes (atomic append, read-your-writes). The problem is therefore **not claimed as solved**. Use the PostgreSQL option for a production system with real concurrency.
+Live ([LIVE_VERIFICATION.md](LIVE_VERIFICATION.md)): three identical submissions a few seconds apart all passed the history lookup and appended a claim; exactly one won, and the result was one lead, one task and one model call. The same session showed that the Sheets nodes' default write mode can lose a row under concurrent runs (a task row vanished while the run reported success). All row-adding nodes now use the append API (`useAppend`).
+
+**Not verified:** guarantees at volume. One small live run is evidence, not a proof, and Sheets still has no unique constraint. The problem is therefore **not claimed as solved**. Use the PostgreSQL option for a production system with real concurrency.
 
 ### LF-04 (High, reference only): public forms and the token
 
@@ -94,7 +96,7 @@ This is **not** a GDPR compliance feature; see [PRIVACY.md](PRIVACY.md).
 
 ### LF-08 (Medium, fixed): error content, timeouts
 
-Errors are reduced to a fixed set of fields, scrubbed of bearer tokens, JWTs, API-key shapes, `key=value` secrets, long opaque strings and e-mail addresses, and cut to 300 characters. The workflow has an execution timeout (240 s) and an optional error-handler workflow that writes a bounded row (failing node, message, execution id; never the request body or stack trace). Successful executions are not stored.
+Errors are reduced to a fixed set of fields, scrubbed of bearer tokens, JWTs, API-key shapes, `key=value` secrets, long opaque strings and e-mail addresses, and cut to 300 characters. The workflow has an execution timeout (180 s, the maximum n8n Cloud accepts) and an optional error-handler workflow that writes a bounded row (failing node, message, execution id; never the request body or stack trace). Successful executions are not stored.
 
 Residual: n8n stores **failed** executions, including their data, according to the instance settings. Set retention there.
 
@@ -116,7 +118,7 @@ Cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with
 
 ### LF-13 (Info, open): the published workflow is v1.0
 
-The workflow running in the owner's n8n Cloud instance was **intentionally not changed**: the mission forbids deploying to production without explicit authorisation. v1.1 needs a new sheet tab and columns, so importing it also needs manual steps (see [SETUP.md](SETUP.md)).
+The workflow running in the owner's n8n Cloud instance was **intentionally not changed**: replacing it needs the owner's explicit authorisation. v1.1 was run live only as a separate, unpublished copy ([LIVE_VERIFICATION.md](LIVE_VERIFICATION.md)). v1.1 needs a new sheet tab and columns, so importing it also needs manual steps (see [SETUP.md](SETUP.md)).
 
 ### LF-14 (Info, open): repository settings
 
@@ -129,7 +131,7 @@ The workflow-level throttle (120 requests per 10 minutes) and per-contact limit 
 ## What remains open
 
 1. Confirm that the deployed webhook token has been rotated (LF-01).
-2. Import v1.1 into n8n after reading [SETUP.md](SETUP.md) (LF-13), then repeat the live checks listed in [TEST_REPORT.md](TEST_REPORT.md).
+2. Import v1.1 into n8n after reading [SETUP.md](SETUP.md) (LF-13), then check the published webhook from outside (authentication and response codes), which the live runs did not cover.
 3. Deploy an edge proxy if the form is public (LF-04).
 4. Move to PostgreSQL if concurrent traffic is real (LF-03).
 5. Decide the retention period for the sheet and for n8n error executions.

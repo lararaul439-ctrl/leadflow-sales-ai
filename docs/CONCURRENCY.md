@@ -2,7 +2,7 @@
 
 The goal: the same lead sent twice produces **one** lead row, **one** task and **one** model call, even when both requests arrive at the same moment.
 
-**Status in one sentence:** sequential repeats are handled and tested; simultaneous repeats are handled by an arbitration protocol that is proven only in a simulator; a real guarantee needs a database with a unique constraint, which is provided as an option but not wired into the workflow.
+**Status in one sentence:** sequential repeats are handled and tested; simultaneous repeats are handled by an arbitration protocol that is proven exhaustively in a simulator and held in one small live run on n8n Cloud and Google Sheets; a real guarantee needs a database with a unique constraint, which is provided as an option but not wired into the workflow.
 
 ## Layer 1: identity
 
@@ -59,9 +59,17 @@ Editable source: [`diagrams/concurrency-sequence.mmd`](diagrams/concurrency-sequ
 
 `tests/resilience.test.js` adds failure injection (Sheets and model failures at every stage) and a soak run of 200 leads with random faults that must converge with no duplicate and no lost lead.
 
+## What happened live
+
+[LIVE_VERIFICATION.md](LIVE_VERIFICATION.md) records the runs on n8n Cloud with the real Sheets nodes (fictional leads, separate test tabs):
+
+- **Three identical submissions** a few seconds apart all passed the history lookup before any row existed and each appended a claim. One won and processed the lead; the others stored nothing. Result: one lead row, one task row, one model call. The winner was decided by sheet order, not timestamp (the claim with the earlier `claimed_at` landed second and lost), which is why the protocol uses order.
+- **A defect that only the live run showed.** With the Sheets nodes' default settings the node reads the last row and writes to "last + 1". Two simultaneous executions can pick the same row and one overwrites the other: a task row was lost while the run reported success. Every node that adds rows now sets `useAppend` (the Sheets append API chooses the row), and a structural test enforces it. A later run of four simultaneous leads lost nothing.
+
 ## What was **not** proven
 
-- That a real Google Sheets append is atomic and that a read after an append sees it. The protocol assumes both. Google documents appends as inserting rows, but this branch did not test it against concurrent real calls. Until someone does, **do not describe the duplicate race as solved** for production traffic.
+- That a real Google Sheets append is atomic and read-your-writes in general. The live runs held, but they were few. Until it is tested under real traffic, **do not describe the duplicate race as solved** for production.
+- Lost-row detection: nothing in v1.1 notices a lead marked `tarea_creada` whose task row is missing.
 - Clock agreement: the window compares timestamps written by executions. Within one n8n instance they share a clock; across several workers a skew over 30 seconds would weaken it.
 - Throughput: the arbitration adds two Sheets calls (append and read) to every new lead, and a third (a second look-up) to every loser.
 

@@ -10,7 +10,7 @@ An n8n workflow that receives inbound sales leads from a web form, validates and
 
 *Rendered from the output of `npm run demo:local`: the real decision code with a simulated model and an in-memory sheet. It is not a screenshot of n8n. See [docs/images](docs/images/README.md).*
 
-> **Status.** Version 1.1 hardens the project after a security review ([findings](docs/SECURITY_REVIEW.md)). The test suites run the real workflow code against in-memory fakes, and the Code-node logic was run inside n8n ([how](docs/RUNTIME_VERIFICATION.md)). The full v1.1 workflow has **not** yet been run end to end against live Google Sheets and Groq, and the copy running in the author's n8n instance is still v1.0. [docs/TEST_REPORT.md](docs/TEST_REPORT.md) says exactly what was executed, what was simulated and what is still open.
+> **Status.** Version 1.1 hardens the project after a security review ([findings](docs/SECURITY_REVIEW.md)). The test suites run the real workflow code against in-memory fakes, and the Code-node logic was run inside n8n ([how](docs/RUNTIME_VERIFICATION.md)). The full v1.1 workflow was also run end to end as an unpublished copy on n8n Cloud with real Google Sheets and Groq on fictional leads ([what ran and what it found](docs/LIVE_VERIFICATION.md)); the published webhook of v1.1 was not exercised, and the copy running in the author's n8n instance is still v1.0. [docs/TEST_REPORT.md](docs/TEST_REPORT.md) says exactly what was executed, what was simulated and what is still open.
 
 ## The problem
 
@@ -119,12 +119,13 @@ The status of every test area (executed, simulated, prepared, blocked) is in [do
 
 ## Known limitations
 
-The main ones: Google Sheets cannot guarantee uniqueness under real concurrency (a SQL option is prepared but not wired in); the workflow throttle is best effort; injection detection is not a guarantee; personal data inside the message beyond the redacted patterns can still reach the AI provider; consent is declared, not verified; the v1.1 workflow has not been run live end to end. Full list: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+The main ones: Google Sheets cannot guarantee uniqueness under real concurrency (a SQL option is prepared but not wired in); the workflow throttle is best effort; injection detection is not a guarantee; personal data inside the message beyond the redacted patterns can still reach the AI provider; consent is declared, not verified; the published v1.1 webhook has not been exercised from outside. Full list: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 ## Roadmap
 
-- Run v1.1 end to end on n8n Cloud and record the result.
-- Test the claim arbitration against real Google Sheets, or move to PostgreSQL with the unique constraint ([db/](db/README.md)).
+- Replace the production workflow with v1.1 and check the published webhook from outside (the live runs used an unpublished copy).
+- Move to PostgreSQL with the unique constraint if traffic is concurrent ([db/](db/README.md)); the Sheets arbitration held in small live runs only.
+- Reconcile leads and tasks periodically (detect a lead marked `tarea_creada` whose task row is missing).
 - Deploy the edge proxy with a bot challenge and a verifiable consent log ([proxy/](proxy/README.md)).
 - Scheduled retries and alerting.
 - Handoff to a CRM after human approval.

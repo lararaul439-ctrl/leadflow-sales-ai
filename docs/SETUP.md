@@ -28,7 +28,8 @@ Never paste keys into the workflow JSON, a chat, a ticket or the repository. If 
 3. Open the node **Configuración** and replace `PASTE_YOUR_GOOGLE_SHEET_ID_HERE` with your sheet id. The same node holds the throttle (`rate_max_requests` per `rate_window_seconds`, default 120 per 600 s).
 4. Save.
 5. Optional but recommended: import `workflows/leadflow-sales-ai-error-handler.json`, set its sheet id and credential, then in the main workflow open *Settings* and choose it as **Error workflow**. It writes one bounded row to `errores` when an execution fails.
-6. In the main workflow's *Settings* keep "Save successful production executions" off and decide how long n8n keeps failed executions (they contain request data).
+6. In the main workflow's *Settings* keep "Save successful production executions" off and decide how long n8n keeps failed executions (they contain request data). The export sets a 180 s execution timeout, which is the maximum on n8n Cloud; a different instance limit may need a lower value.
+7. Leave the **Use Append** option on in the Google Sheets nodes that add rows (it is set in the export). It makes Sheets choose the row, so two simultaneous executions cannot overwrite each other. It assumes the tabs have no empty rows between data rows.
 
 ## 4. Publish and test
 

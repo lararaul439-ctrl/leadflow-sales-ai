@@ -77,6 +77,7 @@ test('export: every Sheets write maps every documented column and matches on the
     assert.deepEqual(n.parameters.columns.matchingColumns, [key], name);
     assert.deepEqual(Object.keys(n.parameters.columns.value), COLUMNS[tab], name);
     assert.equal(n.parameters.options.cellFormat, 'RAW', name + ' must write RAW so cells starting with = are never evaluated');
+    assert.equal(n.parameters.options.useAppend, true, name + ' must use the Sheets append API: without it two simultaneous runs can pick the same row and one overwrites the other (seen live)');
   }
 });
 
@@ -171,6 +172,8 @@ test('export: the claim is written to its own tab with every documented column',
   assert.equal(n.parameters.sheetName.value, 'claims');
   assert.deepEqual(Object.keys(n.parameters.columns.value), COLUMNS.claims);
   assert.equal(n.parameters.options.cellFormat, 'RAW');
+  assert.equal(n.parameters.options.useAppend, true, 'the claim row must be inserted by the append API, not written to a computed row');
+  assert.deepEqual(n.parameters.columns.schema.map((c) => c.id), COLUMNS.claims, 'the append operation needs columns.schema (found by the first live run)');
   const read = WORKFLOW.nodes.find((x) => x.name === 'Leer reclamaciones');
   assert.equal(read.parameters.sheetName.value, 'claims');
   assert.equal(read.alwaysOutputData, true, 'an empty read must still reach the arbitration code');
@@ -189,7 +192,7 @@ test('export: every Google Sheets and HTTP node retries three times with a pause
 });
 
 test('export: execution limits and data-retention settings', () => {
-  assert.ok(WORKFLOW.settings.executionTimeout > 0 && WORKFLOW.settings.executionTimeout <= 300);
+  assert.ok(WORKFLOW.settings.executionTimeout > 0 && WORKFLOW.settings.executionTimeout <= 180, 'n8n Cloud rejects timeouts above 180 s (found live)');
   assert.equal(WORKFLOW.settings.saveDataSuccessExecution, 'none', 'successful executions (which contain personal data) are not stored');
   assert.equal(WORKFLOW.settings.saveManualExecutions, false);
 });
@@ -216,6 +219,8 @@ test('export: the optional error-handler workflow is wired, credential-free and 
   assert.equal(sheet.parameters.sheetName.value, 'errores');
   assert.deepEqual(Object.keys(sheet.parameters.columns.value), COLUMNS.errores);
   assert.equal(sheet.parameters.options.cellFormat, 'RAW');
+  assert.equal(sheet.parameters.options.useAppend, true);
+  assert.deepEqual(sheet.parameters.columns.schema.map((c) => c.id), COLUMNS.errores, 'the append operation needs columns.schema');
   assert.equal(sheet.credentials.googleSheetsOAuth2Api.id, 'REPLACE_WITH_YOUR_CREDENTIAL');
   assert.equal(H.settings.saveDataErrorExecution, 'none');
   const text = JSON.stringify(H);

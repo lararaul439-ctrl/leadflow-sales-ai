@@ -48,6 +48,6 @@ If your n8n instance does not allow outbound requests, paste the export into a S
 
 | Shows | Does not show |
 | --- | --- |
-| The generated source runs in n8n's JavaScript runtime and gives the same results as on Node | That the v1.1 graph wiring is correct in n8n (that is checked structurally in `tests/workflow.test.js`, not by running it) |
+| The generated source runs in n8n's JavaScript runtime and gives the same results as on Node | That the v1.1 graph wiring is correct in n8n (checked structurally in `tests/workflow.test.js`; the graph was run in [LIVE_VERIFICATION.md](LIVE_VERIFICATION.md)) |
 | Unicode normalisation, property escapes and code points are available there | Google Sheets behaviour: append atomicity, read-after-write |
 | The code under test is the code in the export (hashes in `codeHashes`) | The Groq call, the webhook, authentication or the public URL |

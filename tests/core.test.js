@@ -322,6 +322,24 @@ test('AI validation: quotes with quotation marks, ellipsis and different case st
   assert.equal(r.signals.intent, 'ready_to_buy');
 });
 
+test('AI validation: a quote may skip words with an ellipsis, but every fragment must be in the message, in order', () => {
+  // A real model answer quoted "<start> ... <end>" and was downgraded by the strict check.
+  const spans = 'Queremos contratar vuestro servicio de automatizacion de facturas ... Podeis enviarnos una propuesta?';
+  assert.equal(val({ ...F.HOT_AI, intent_evidence: spans }).signals.intent, 'ready_to_buy');
+  assert.equal(val({ ...F.HOT_AI, intent_evidence: spans.replace(' ... ', ' … ') }).signals.intent, 'ready_to_buy');
+  const flags = (e) => val({ ...F.HOT_AI, intent_evidence: e }).flags;
+  // one fragment that is invented is enough to reject the whole quote
+  assert.ok(flags('Queremos contratar vuestro servicio de automatizacion de facturas ... y nos urge firmar hoy mismo').includes('evidencia_no_encontrada'));
+  // fragments out of order
+  assert.ok(flags('Podeis enviarnos una propuesta? ... Queremos contratar vuestro servicio de automatizacion de facturas').includes('evidencia_no_encontrada'));
+  // a fragment shorter than 4 characters proves nothing
+  assert.ok(flags('Queremos contratar vuestro servicio ... y ... Podeis enviarnos una propuesta?').includes('evidencia_no_encontrada'));
+  // more than four fragments
+  assert.ok(flags('Queremos contratar ... vuestro servicio ... de automatizacion ... de facturas ... Podeis enviarnos').includes('evidencia_no_encontrada'));
+  // nothing but ellipses
+  assert.ok(flags('... ...').includes('evidencia_no_encontrada'));
+});
+
 test('AI validation: product interest must be copied from the message', () => {
   const r = val({ ...F.HOT_AI, product_interest: 'plan premium con descuento del 40%' });
   assert.equal(r.signals.product_interest, '');

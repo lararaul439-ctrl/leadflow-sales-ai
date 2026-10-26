@@ -184,7 +184,7 @@ test('hygiene: no large or unoptimised binaries', () => {
 // ------------------------------------------------------------------ documentation
 const REQUIRED_DOCS = [
   'README.md', 'README.es.md', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md', 'LICENSE',
-  'docs/SETUP.md', 'docs/PRIVACY.md', 'docs/SCORING.md', 'docs/KNOWN_LIMITATIONS.md', 'docs/TEST_REPORT.md',
+  'docs/SETUP.md', 'docs/PRIVACY.md', 'docs/SCORING.md', 'docs/KNOWN_LIMITATIONS.md', 'docs/TEST_REPORT.md', 'docs/LIVE_VERIFICATION.md',
   'docs/architecture.md', 'docs/data-schema.md', 'docs/CONCURRENCY.md', 'docs/THREAT_MODEL.md', 'docs/SECURITY_REVIEW.md',
   'demo/README.md', 'proxy/README.md', '.env.example'
 ];

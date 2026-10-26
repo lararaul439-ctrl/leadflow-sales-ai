@@ -10,7 +10,7 @@ Un workflow de n8n que recibe leads comerciales desde un formulario web, los val
 
 *Imagen renderizada a partir de la salida de `npm run demo:local`: el código de decisión real con un modelo simulado y una hoja en memoria. No es una captura de n8n. Véase [docs/images](docs/images/README.md).*
 
-> **Estado.** La versión 1.1 endurece el proyecto tras una revisión de seguridad ([hallazgos](docs/SECURITY_REVIEW.md), en inglés). Las pruebas ejecutan el código real del workflow contra simulaciones en memoria, y la lógica de los nodos Code se ejecutó dentro de n8n ([cómo](docs/RUNTIME_VERIFICATION.md)). El workflow v1.1 completo **no** se ha ejecutado todavía de principio a fin contra Google Sheets y Groq reales, y la copia que corre en la instancia de n8n del autor sigue siendo la v1.0. [docs/TEST_REPORT.md](docs/TEST_REPORT.md) detalla qué se ejecutó, qué se simuló y qué sigue pendiente.
+> **Estado.** La versión 1.1 endurece el proyecto tras una revisión de seguridad ([hallazgos](docs/SECURITY_REVIEW.md), en inglés). Las pruebas ejecutan el código real del workflow contra simulaciones en memoria, y la lógica de los nodos Code se ejecutó dentro de n8n ([cómo](docs/RUNTIME_VERIFICATION.md)). El workflow v1.1 completo también se ejecutó de principio a fin como copia sin publicar en n8n Cloud, con Google Sheets y Groq reales y leads ficticios ([qué se ejecutó y qué se encontró](docs/LIVE_VERIFICATION.md), en inglés); el webhook publicado de la v1.1 no se probó, y la copia que corre en la instancia de n8n del autor sigue siendo la v1.0. [docs/TEST_REPORT.md](docs/TEST_REPORT.md) detalla qué se ejecutó, qué se simuló y qué sigue pendiente.
 
 ## El problema
 
@@ -119,12 +119,13 @@ El estado de cada área de pruebas (ejecutada, simulada, preparada, bloqueada) e
 
 ## Limitaciones conocidas
 
-Las principales: Google Sheets no garantiza unicidad con concurrencia real (hay una opción SQL preparada pero no conectada); el límite de peticiones del workflow es aproximado; la detección de inyección no es una garantía; los datos personales dentro del mensaje que no encajan en los patrones redactados aún pueden llegar al proveedor de IA; el consentimiento es declarado, no verificado; el workflow v1.1 no se ha ejecutado en vivo de principio a fin. Lista completa: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+Las principales: Google Sheets no garantiza unicidad con concurrencia real (hay una opción SQL preparada pero no conectada); el límite de peticiones del workflow es aproximado; la detección de inyección no es una garantía; los datos personales dentro del mensaje que no encajan en los patrones redactados aún pueden llegar al proveedor de IA; el consentimiento es declarado, no verificado; el webhook publicado de la v1.1 no se ha probado desde fuera. Lista completa: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 ## Hoja de ruta
 
-- Ejecutar la v1.1 de principio a fin en n8n Cloud y registrar el resultado.
-- Probar el arbitraje de reclamaciones contra Google Sheets real, o pasar a PostgreSQL con restricción de unicidad ([db/](db/README.md)).
+- Sustituir el workflow de producción por la v1.1 y comprobar el webhook publicado desde fuera (las pruebas en vivo usaron una copia sin publicar).
+- Pasar a PostgreSQL con restricción de unicidad si el tráfico es concurrente ([db/](db/README.md)); el arbitraje sobre Sheets solo se comprobó en pruebas pequeñas.
+- Conciliar leads y tareas periódicamente (detectar un lead en `tarea_creada` cuya fila de tarea falta).
 - Desplegar el proxy con desafío anti-bots y un registro de consentimiento verificable ([proxy/](proxy/README.md)).
 - Reintentos programados y alertas.
 - Traspaso a un CRM tras la aprobación humana.

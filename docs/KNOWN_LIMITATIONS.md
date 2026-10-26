@@ -4,11 +4,11 @@ Honest list of what v1.1 does not do or has not proven. Security-related items h
 
 ## Not verified on real services
 
-1. **The v1.1 workflow has not been run on n8n Cloud as a whole.** Its Code-node logic was run inside n8n ([RUNTIME_VERIFICATION.md](RUNTIME_VERIFICATION.md)), and the graph is checked structurally in tests. The webhook, the Sheets nodes and the Groq call of v1.1 were verified only for v1.0. The published workflow is still v1.0 (LF-13).
-2. **Duplicate arbitration on Google Sheets (LF-03).** It is proven in a simulator. Whether a real Sheets append is atomic and visible to the next read has not been tested. Do not describe the concurrency problem as solved.
+1. **The published v1.1 webhook was not exercised.** The whole v1.1 workflow ran on n8n Cloud as an unpublished copy with real Sheets and Groq ([LIVE_VERIFICATION.md](LIVE_VERIFICATION.md)), but requests were injected with manual executions. Header authentication, the HTTP response codes and the public URL of v1.1 were not checked. The published workflow is still v1.0 (LF-13).
+2. **Duplicate arbitration on Google Sheets (LF-03).** Proven in a simulator and held in one small live run (three identical submissions gave one lead, one task, one model call). Sheets has no unique constraint; do not describe the concurrency problem as solved.
 3. **The PostgreSQL option** is exercised on SQLite only, and is not wired into n8n.
 4. **The proxy** (`proxy/worker.mjs`) is tested with mocks and was never deployed (LF-04).
-5. **Live model behaviour for v1.1.** The prompt and the redaction changed. The v1.0 prompt was verified against the live Groq API for fictional leads; the v1.1 one was not.
+5. **Live model behaviour for v1.1 is a small sample.** Nine real answers from the live Groq model were validated (hot, injection, range budget, no-intent leads). Model behaviour varies with the model, the language and long messages; the validation turns any unusable answer into a review or an error status.
 
 ## Design limits
 
@@ -24,12 +24,14 @@ Honest list of what v1.1 does not do or has not proven. Security-related items h
 15. **Language support.** Drafts exist in Spanish and English; other languages get the English draft.
 16. **Budget tiers are labels**, not currency conversions; the demo assumes EUR.
 17. **Retries are manual** unless you attach a Schedule Trigger.
-18. **Sheets node without a column schema.** The export omits the Google Sheets `schema` arrays and maps explicit column names. Numbers appear with the sheet's locale (for example `0,99`).
+18. **Sheets nodes map explicit column names.** The upsert nodes have no `schema` list (not needed); the append nodes carry one (required). All row-adding nodes use the Sheets append API (`useAppend`), which assumes the tab has no gaps between rows. Numbers appear with the sheet's locale (for example `0,99`).
 19. **Model behaviour varies** with the model, the language and long messages. Any unusable answer ends in an error status, never in a score.
 20. **Dates and times are UTC ISO strings**; the SLA does not know about working hours or holidays.
+21. **No orphan detection.** A lead stored as `tarea_creada` whose task row is missing (for example after a lost write) is not noticed or repaired. A periodic reconciliation job would close this.
+22. **The instance caps the execution timeout** (180 s on the n8n Cloud instance used here). A self-hosted instance may allow more.
 
 ## Repository and process
 
-21. Dependabot security updates, branch protection and private vulnerability reporting are repository settings that need the owner (LF-14).
-22. The CI badge shows real results only once the workflow has run on the default branch. CodeQL may conflict with GitHub's *default setup* if it is enabled.
-23. The images in `docs/images/` are generated or rendered from real outputs. None is a screenshot of the n8n editor or of Google Sheets, because no browser was available when they were produced. See [docs/images/README.md](images/README.md).
+23. Dependabot security updates, branch protection and private vulnerability reporting are repository settings that need the owner (LF-14).
+24. The CI badge shows real results only once the workflow has run on the default branch. CodeQL may conflict with GitHub's *default setup* if it is enabled.
+25. The images in `docs/images/` are generated or rendered from real outputs. None is a screenshot of the n8n editor or of Google Sheets, because no browser was available when they were produced. See [docs/images/README.md](images/README.md).

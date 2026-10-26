@@ -83,25 +83,32 @@ function mappingFor(columns, ref, keys) {
 
 const SHEETS_RETRY = { retryOnFail: true, maxTries: 3, waitBetweenTries: 2000 };
 
+// useAppend: true makes new rows go through the Sheets "append" API (the server picks the row).
+// Without it the node reads the last row and writes to "last + 1", so two simultaneous executions can
+// choose the same row and one overwrites the other - observed live: a task row was lost while the run reported success.
 function upsertNode(name, tab, columns, ref, key, position, notes) {
   return Object.assign({
     name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position, notes,
     parameters: {
       resource: 'sheet', operation: 'appendOrUpdate', documentId: docRef(), sheetName: tabRef(tab),
       columns: mappingFor(columns, ref, [key]),
-      options: { cellFormat: 'RAW' }
+      options: { cellFormat: 'RAW', useAppend: true }
     },
     credentials: SHEETS_CRED
   }, SHEETS_RETRY);
 }
 
+// The Google Sheets "append" operation refuses to run with mappingMode "defineBelow" unless
+// columns.schema lists every column (found by the first live execution; "appendOrUpdate" does not need it).
 function appendNode(name, tab, columns, ref, position, notes) {
+  const mapping = mappingFor(columns, ref, []);
+  mapping.schema = columns.map((c) => ({ id: c, displayName: c, required: false, defaultMatch: false, display: true, type: 'string', canBeUsedToMatch: true }));
   return Object.assign({
     name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.7, position, notes,
     parameters: {
       resource: 'sheet', operation: 'append', documentId: docRef(), sheetName: tabRef(tab),
-      columns: mappingFor(columns, ref, []),
-      options: { cellFormat: 'RAW' }
+      columns: mapping,
+      options: { cellFormat: 'RAW', useAppend: true }
     },
     credentials: SHEETS_CRED
   }, SHEETS_RETRY);
@@ -295,7 +302,7 @@ function buildWorkflow(opts) {
     pinData: {},
     connections,
     active: false,
-    settings: { executionOrder: 'v1', saveDataSuccessExecution: o.saveSuccess, saveDataErrorExecution: 'all', saveManualExecutions: o.saveSuccess === 'all', executionTimeout: 240 },
+    settings: { executionOrder: 'v1', saveDataSuccessExecution: o.saveSuccess, saveDataErrorExecution: 'all', saveManualExecutions: o.saveSuccess === 'all', executionTimeout: 180 },
     meta: { templateCredsSetupCompleted: false, version: CONFIG.version },
     tags: []
   };

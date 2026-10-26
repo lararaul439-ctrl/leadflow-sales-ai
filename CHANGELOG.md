@@ -14,7 +14,7 @@ Security hardening and professionalisation. The workflow export changed shape: *
 - Prompt-injection analysis on several normalised views, with decoding of base64/hex/percent blobs, Unicode tag characters and structural markers; a hit forces human review and discards the model's intent. Scoring stays deterministic.
 - Consent is recorded as **declared by the caller**, with an evidence level and the notice version/time the caller supplied. It never affects the score.
 - Spreadsheet formula injection: cells are neutralised on write and restored on read.
-- Error hygiene: provider errors reduced to fixed fields, secrets and addresses scrubbed, text bounded, optional error-handler workflow, 240 s execution timeout, successful executions not stored.
+- Error hygiene: provider errors reduced to fixed fields, secrets and addresses scrubbed, text bounded, optional error-handler workflow, 180 s execution timeout (the n8n Cloud maximum), successful executions not stored.
 - Best-effort throttle and a per-contact limit.
 - Duplicate arbitration for simultaneous submissions through a `claims` tab (insert, then verify). Proven in simulation only; see [docs/CONCURRENCY.md](docs/CONCURRENCY.md).
 
@@ -40,12 +40,18 @@ Security hardening and professionalisation. The workflow export changed shape: *
 ### Fixed
 
 - The run mode (web or retry) was derived from request data; it is now set by constant nodes, one per trigger.
+- Found by running v1.1 live on n8n Cloud ([docs/LIVE_VERIFICATION.md](docs/LIVE_VERIFICATION.md)):
+  - the Google Sheets append nodes (claims, error handler) need `columns.schema` and failed without it;
+  - a model quote that skips words with an ellipsis is now accepted when every fragment is found verbatim and in order (up to four fragments of four characters or more);
+  - the execution timeout is 180 s because the instance rejects 240 s;
+  - every node that adds rows now uses the Sheets append API (`useAppend`): with the default write mode two simultaneous executions could overwrite the same row and a task row was lost while the run reported success.
 
 ### Not done in this release (see the open items in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md))
 
 - The published workflow was not upgraded.
 - Rotation of the deployed webhook token is an owner action (see LF-01).
-- Google Sheets append atomicity and the Groq call were not re-verified for v1.1.
+- The published v1.1 webhook (authentication and response codes) was not exercised; v1.1 ran live only as an unpublished copy with injected payloads.
+- Sheets still has no unique constraint; the live concurrency runs were small.
 - The proxy and the SQL option are not deployed.
 
 ## [1.0.0] - 2026-10-26
