@@ -109,10 +109,10 @@ test('schema: boundary lengths and valid data are preserved', () => {
   const local = 'a'.repeat(64);
   assert.equal(norm({ email: local + '@empresa-demo.example' }).valid, true);
   assert.equal(norm({ email: local + 'a@empresa-demo.example' }).valid, false);
-  const unicode = norm({ full_name: 'José Ángel Núñez', company: 'Café Ñandú S.L.', email: 'first.last+tag@sub.example.co' });
+  const unicode = norm({ full_name: 'José Ángel Núñez', company: 'Café Ñandú S.L.', email: 'first.last+tag@sub.example.org' });
   assert.equal(unicode.valid, true);
   assert.equal(unicode.lead.full_name, 'José Ángel Núñez');
-  assert.equal(unicode.lead.email, 'first.last+tag@sub.example.co');
+  assert.equal(unicode.lead.email, 'first.last+tag@sub.example.org');
   assert.equal(norm({ full_name: '李雷' }).valid, true);
   assert.equal(norm({ phone: '+34 (600) 123-456' }).lead.phone, '+34600123456');
 });
@@ -183,7 +183,7 @@ test('formula injection: sender-controlled cells that start with = + - @ are neu
       assert.ok(!/^[=+\-@\t\r]/.test(row[col]), col + ' starts with a formula character: ' + JSON.stringify(row[col]).slice(0, 40));
     }
   }
-  const eml = norm({ email: "=cmd|'/Ccalc'!a0@x.com", full_name: '=HYPERLINK("http://evil.example","x")' });
+  const eml = norm({ email: "=cmd|'/Ccalc'!a0@x.example", full_name: '=HYPERLINK("http://evil.example","x")' });
   assert.equal(eml.valid, true);
   const row = core.toRow(core.COLUMNS.leads, eml.lead);
   assert.ok(row.email.startsWith("'="), row.email);

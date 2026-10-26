@@ -52,11 +52,11 @@ test('normalize: required fields are enforced', () => {
 });
 
 test('normalize: invalid emails are rejected', () => {
-  const bad = ['plain', 'a@b', 'a b@c.com', 'a@@c.com', 'a..b@c.com', '.a@c.com', 'a@c..com', 'a@c.com, b@d.com', 'a@-c.com', '@c.com', 'a@c.c', 'x'.repeat(65) + '@c.com'];
+  const bad = ['plain', 'a@b', 'a b@c.example', 'a@@c.example', 'a..b@c.example', '.a@c.example', 'a@c..example', 'a@c.example, b@d.example', 'a@-c.example', '@c.example', 'a@c.c', 'x'.repeat(65) + '@c.example'];
   for (const e of bad) {
     assert.equal(norm({ ...F.HOT, email: e }).valid, false, e);
   }
-  for (const e of ['a@c.com', 'first.last+tag@sub.example.co', "o'brien@example.org"]) {
+  for (const e of ['a@c.example', 'first.last+tag@sub.example.org', "o'brien@example.org"]) {
     assert.equal(norm({ ...F.HOT, email: e }).valid, true, e);
   }
 });

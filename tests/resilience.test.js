@@ -180,7 +180,7 @@ test('error handler: odd or hostile error-trigger payloads still produce one bou
     undefined, null, {}, { execution: null }, { execution: {} }, { execution: { id: 12345, lastNodeExecuted: 7 } },
     { execution: { id: 'ab\ncd', lastNodeExecuted: '=HYPERLINK("http://evil.example")', error: { message: '=cmd|calc', stack: 's'.repeat(50000) } } },
     { execution: { id: 'x'.repeat(5000), lastNodeExecuted: 'n'.repeat(5000), error: 'e'.repeat(50000) } },
-    { execution: { error: { message: 'Authorization: Bearer gsk_abcdefghijklmnopqrstuvwxyz0123456789' } } }
+    { execution: { error: { message: 'Authorization: Bearer gsk_FAKEFAKEFAKEFAKEFAKEFAKE1234567890' } } }
   ];
   for (const info of inputs) {
     const row = runErrorHandler(info === undefined ? {} : info, T0);
@@ -193,7 +193,7 @@ test('error handler: odd or hostile error-trigger payloads still produce one bou
   }
 });
 
-test('error handler: the same failed execution maps to the same row id (no row per notification)', () => {
+test('error handler: the row id is stable for the same execution and node, and different otherwise', () => {
   const info = { execution: { id: '991', lastNodeExecuted: 'Guardar lead', error: { message: 'boom' } } };
   assert.equal(runErrorHandler(info, T0).error_id, runErrorHandler(info, at(60)).error_id);
   assert.notEqual(runErrorHandler(info, T0).error_id, runErrorHandler({ execution: { id: '992', lastNodeExecuted: 'Guardar lead' } }, T0).error_id);
