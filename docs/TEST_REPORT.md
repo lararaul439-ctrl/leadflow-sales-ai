@@ -1,6 +1,6 @@
 # Test report
 
-Version 1.1.0, run on 2026-10-26 with Node 22.23.4 on Linux (`node --test`, no network, about 50 seconds, most of it the exhaustive concurrency suite). Result at the commit that introduced this report: **227 tests, 227 passed, 0 failed, 0 skipped**; ESLint reported no findings; `node scripts/build-workflow.js --check` confirmed that every generated file matches `src/`. The CI result on GitHub is recorded in the pull request, not here.
+Version 1.1.0, run on 2026-10-26 with Node 22.23.4 on Linux (`node --test`, no network, about 50 seconds, most of it the exhaustive concurrency suite). Result at the commit that introduced this report: **227 tests, 227 passed, 0 failed, 0 skipped**; ESLint reported no findings; `node scripts/build-workflow.js --check` confirmed that every generated file matches `src/`. On GitHub, the pull request run for commit `aed75e2` succeeded: tests on Node 20, 22 and 24, lint and dependency audit, and CodeQL (one run each; later commits get their own runs, shown on the pull request).
 
 ![Test suites](images/test-suites.png)
 
