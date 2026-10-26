@@ -27,7 +27,7 @@ El modelo hace una sola tarea acotada, extraer lo que escribió la persona, y nu
 | Alucinaciones del LLM | Cada intención, plazo y presupuesto debe ir con una cita literal que exista en el mensaje; las cifras y productos de la salida también deben existir en él. Si no, la señal se descarta y el lead pasa a una persona. |
 | Prioridad | Se calcula en código con reglas documentadas ([docs/SCORING.md](docs/SCORING.md), en inglés). El modelo no puede fijarla y el consentimiento nunca la afecta. |
 | Inyección de prompts | Detección sobre varias versiones normalizadas del texto (homoglifos, leetspeak, espaciado, base64/hex/porcentaje, caracteres Unicode de etiqueta, delimitadores falsos). Un acierto descarta la intención del modelo y fuerza revisión humana. Es un esfuerzo razonable, no una garantía. |
-| Duplicados | Identificadores estables a partir del e-mail y el mensaje. Los reenvíos se ignoran; los envíos simultáneos se arbitran con una pestaña `claims` (demostrado solo en simulación, véase [docs/CONCURRENCY.md](docs/CONCURRENCY.md)). |
+| Duplicados | Identificadores estables a partir del e-mail y el mensaje. Los reenvíos se ignoran; los envíos simultáneos se arbitran con una pestaña `claims` (demostrado en simulación y en una prueba real pequeña, no es una garantía; véase [docs/CONCURRENCY.md](docs/CONCURRENCY.md)). |
 | Fallos | El lead se guarda como `recibido` antes de llamar a la IA. Las llamadas fallidas se reintentan hasta 3 veces y luego pasan a revisión manual. Los errores se limpian de secretos y se acotan. |
 | Mensajes salientes | Ninguno. El workflow escribe una tarea y un borrador; una persona lo aprueba y lo envía. |
 

@@ -27,7 +27,7 @@ The model is used for one narrow job, extracting what a person wrote, and is nev
 | LLM hallucination | Every intent, deadline and budget must come with a verbatim quote that exists in the message; figures and products in the output must also exist there. Otherwise the signal is dropped and the lead goes to a person. |
 | Priority | Computed in code from documented rules ([docs/SCORING.md](docs/SCORING.md)). The model cannot set it, and consent never affects it. |
 | Prompt injection | Detection on several normalised views (homoglyphs, leetspeak, spacing, base64/hex/percent, Unicode tag characters, fake delimiters). A hit discards the model's intent and forces human review. Best effort, not a guarantee. |
-| Duplicates | Stable ids from e-mail and message. Repeats are ignored; simultaneous repeats are arbitrated through a `claims` tab (proven in simulation only, see [docs/CONCURRENCY.md](docs/CONCURRENCY.md)). |
+| Duplicates | Stable ids from e-mail and message. Repeats are ignored; simultaneous repeats are arbitrated through a `claims` tab (proven in simulation and held in a small live run, not a guarantee; see [docs/CONCURRENCY.md](docs/CONCURRENCY.md)). |
 | Failures | The lead is stored as `recibido` before the AI call. Failed calls are retried up to 3 times, then marked for manual review. Errors are scrubbed and bounded. |
 | Outbound messages | None. The workflow writes a task and a draft; a person approves and sends. |
 
