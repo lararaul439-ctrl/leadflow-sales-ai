@@ -77,6 +77,7 @@ test('export: every Sheets write maps every documented column and matches on the
     assert.deepEqual(n.parameters.columns.matchingColumns, [key], name);
     assert.deepEqual(Object.keys(n.parameters.columns.value), COLUMNS[tab], name);
     assert.equal(n.parameters.options.cellFormat, 'RAW', name + ' must write RAW so cells starting with = are never evaluated');
+    assert.equal(n.parameters.options.useAppend, true, name + ' must use the Sheets append API: without it two simultaneous runs can pick the same row and one overwrites the other (seen live)');
   }
 });
 
@@ -95,6 +96,136 @@ test('export: the retry branch and the webhook branch converge on the same AI st
   assert.ok(targets('Registrar recibido').includes('Preparar petición IA'));
   assert.ok(targets('Preparar reintentos').includes('Preparar petición IA'));
   assert.deepEqual(targets('Registrar recibido')[0], 'Responder aceptado', 'the caller is answered before the AI runs');
+});
+
+// ---- graph helpers: prove properties of the wiring, not just that nodes exist
+// `skipEdge(node, outputIndex)` removes individual edges, `without` removes a whole node.
+function reachable(from, without, skipEdge) {
+  const seen = new Set();
+  const stack = [from];
+  while (stack.length) {
+    const n = stack.pop();
+    if (seen.has(n) || n === without) continue;
+    seen.add(n);
+    const c = WORKFLOW.connections[n];
+    if (!c) continue;
+    c.main.forEach((outs, index) => { if (!(skipEdge && skipEdge(n, index))) outs.forEach((t) => stack.push(t.node)); });
+  }
+  return seen;
+}
+const notRetryBranch = (node, index) => node === '¿Envío web?' && index === 1;
+const notWebBranch = (node, index) => node === '¿Envío web?' && index === 0;
+
+test('export: the processing mode is a constant of the wiring, never derived from request data', () => {
+  const web = WORKFLOW.nodes.find((n) => n.name === 'Modo: envío web').parameters.assignments.assignments;
+  const retry = WORKFLOW.nodes.find((n) => n.name === 'Modo: reintento').parameters.assignments.assignments;
+  assert.deepEqual(web.map((a) => [a.name, a.value]), [['mode', 'webhook']], 'plain constant, not an expression');
+  assert.deepEqual(retry.map((a) => [a.name, a.value]), [['mode', 'retry']]);
+  const cfg = WORKFLOW.nodes.find((n) => n.name === 'Configuración').parameters.assignments.assignments.map((a) => a.name);
+  assert.ok(!cfg.includes('mode'), 'the shared config node must not recompute the mode');
+  const c = WORKFLOW.connections;
+  assert.deepEqual(c['Webhook de leads'].main.flat().map((t) => t.node), ['Modo: envío web']);
+  assert.deepEqual(c['Reintentar fallidos'].main.flat().map((t) => t.node), ['Modo: reintento']);
+  const inbound = (name) => Object.entries(c).filter(([, v]) => v.main.flat().some((t) => t.node === name)).map(([k]) => k);
+  assert.deepEqual(inbound('Modo: envío web'), ['Webhook de leads']);
+  assert.deepEqual(inbound('Modo: reintento'), ['Reintentar fallidos']);
+  const branch = WORKFLOW.nodes.find((n) => n.name === '¿Envío web?').parameters.conditions.conditions[0];
+  assert.equal(branch.leftValue, '={{ $json.mode }}');
+  assert.equal(branch.rightValue, 'webhook');
+});
+
+test('export: validation is a choke point - webhook traffic reaches Sheets or the AI only through it', () => {
+  const unvalidated = reachable('Webhook de leads', 'Validar y normalizar', notRetryBranch);
+  for (const n of ['Buscar historial del lead', 'Reclamar envío', 'Registrar recibido', 'Analizar con IA', 'Guardar tarea', 'Guardar lead', 'Registrar error', 'Leer filas para reintento']) {
+    assert.ok(!unvalidated.has(n), n + ' must not be reachable around validation');
+  }
+  assert.ok(reachable('Webhook de leads', null, notRetryBranch).has('Analizar con IA'), 'sanity: the AI is reachable through the validated path');
+  assert.ok(!reachable('Webhook de leads', null, notRetryBranch).has('Leer filas para reintento'), 'webhook traffic never reaches the retry reader');
+});
+
+test('export: the AI is only reachable through a won claim (webhook) or the retry preparation (manual)', () => {
+  assert.ok(!reachable('Webhook de leads', 'Registrar recibido', notRetryBranch).has('Analizar con IA'), 'webhook -> AI must go through "Registrar recibido"');
+  const noWin = reachable('Webhook de leads', '¿Reclamación ganada?', notRetryBranch);
+  assert.ok(!noWin.has('Analizar con IA') && !noWin.has('Registrar recibido'), 'no AI without the arbitration verdict');
+  assert.ok(!reachable('Webhook de leads', 'Reclamar envío', notRetryBranch).has('Analizar con IA'), 'no AI without writing a claim first');
+  const manual = reachable('Reintentar fallidos', null, notWebBranch);
+  assert.ok(manual.has('Preparar reintentos') && manual.has('Analizar con IA'));
+  assert.ok(!manual.has('Validar y normalizar') && !manual.has('Reclamar envío'), 'manual mode does not take new submissions');
+  assert.ok(!reachable('Reintentar fallidos', 'Preparar reintentos', notWebBranch).has('Analizar con IA'));
+});
+
+test('export: the losing side of the claim can only answer, never process', () => {
+  const loser = reachable('Comprobar ganador');
+  assert.deepEqual([...loser].sort(), ['Comprobar ganador', 'Confirmar ganador', 'Responder duplicado'].sort());
+  const dup = reachable('Responder duplicado');
+  assert.deepEqual([...dup], ['Responder duplicado']);
+  const c = WORKFLOW.connections;
+  assert.equal(c['¿Reclamación ganada?'].main[0][0].node, 'Registrar recibido', 'true branch');
+  assert.equal(c['¿Reclamación ganada?'].main[1][0].node, 'Comprobar ganador', 'false branch');
+  assert.equal(c['¿Procesar?'].main[0][0].node, 'Reclamar envío');
+  assert.equal(c['¿Procesar?'].main[1][0].node, 'Responder duplicado');
+});
+
+test('export: the claim is written to its own tab with every documented column', () => {
+  const n = WORKFLOW.nodes.find((x) => x.name === 'Reclamar envío');
+  assert.equal(n.parameters.operation, 'append');
+  assert.equal(n.parameters.sheetName.value, 'claims');
+  assert.deepEqual(Object.keys(n.parameters.columns.value), COLUMNS.claims);
+  assert.equal(n.parameters.options.cellFormat, 'RAW');
+  assert.equal(n.parameters.options.useAppend, true, 'the claim row must be inserted by the append API, not written to a computed row');
+  assert.deepEqual(n.parameters.columns.schema.map((c) => c.id), COLUMNS.claims, 'the append operation needs columns.schema (found by the first live run)');
+  const read = WORKFLOW.nodes.find((x) => x.name === 'Leer reclamaciones');
+  assert.equal(read.parameters.sheetName.value, 'claims');
+  assert.equal(read.alwaysOutputData, true, 'an empty read must still reach the arbitration code');
+});
+
+test('export: every Google Sheets and HTTP node retries three times with a pause; only the AI call passes errors on', () => {
+  const external = WORKFLOW.nodes.filter((n) => n.type === 'n8n-nodes-base.googleSheets' || n.type === 'n8n-nodes-base.httpRequest');
+  assert.ok(external.length >= 10);
+  for (const n of external) {
+    assert.equal(n.retryOnFail, true, n.name);
+    assert.equal(n.maxTries, 3, n.name);
+    assert.ok(n.waitBetweenTries >= 1000, n.name);
+    if (n.name === 'Analizar con IA') assert.equal(n.onError, 'continueRegularOutput');
+    else assert.ok(!n.onError || n.onError === 'stopWorkflow', n.name + ' must fail loudly instead of continuing');
+  }
+});
+
+test('export: execution limits and data-retention settings', () => {
+  assert.ok(WORKFLOW.settings.executionTimeout > 0 && WORKFLOW.settings.executionTimeout <= 180, 'n8n Cloud rejects timeouts above 180 s (found live)');
+  assert.equal(WORKFLOW.settings.saveDataSuccessExecution, 'none', 'successful executions (which contain personal data) are not stored');
+  assert.equal(WORKFLOW.settings.saveManualExecutions, false);
+});
+
+test('export: HTTP responses are computed from the server verdict', () => {
+  const dup = WORKFLOW.nodes.find((n) => n.name === 'Responder duplicado');
+  const code = dup.parameters.options.responseCode;
+  for (const status of ['409', '429', '503', '200']) assert.ok(code.includes(status), 'response code ' + status);
+  const body = dup.parameters.responseBody;
+  for (const key of ['identifier_conflict', 'rate_limited', 'in_progress', 'duplicate: true']) assert.ok(body.includes(key), key);
+  const bad = WORKFLOW.nodes.find((n) => n.name === 'Responder error de validación');
+  assert.match(bad.parameters.options.responseCode, /http_status \|\| 422/);
+  assert.ok(!/\$json\.(email|message|full_name|phone)/.test(bad.parameters.responseBody), 'validation answers never echo personal data');
+  const ok = WORKFLOW.nodes.find((n) => n.name === 'Responder aceptado');
+  assert.equal(ok.parameters.options.responseCode, 202);
+});
+
+test('export: the optional error-handler workflow is wired, credential-free and safe to import', () => {
+  const H = require('./helpers/n8n-sim.js').ERROR_WORKFLOW;
+  assert.deepEqual(H.nodes.map((n) => n.type).sort(), ['n8n-nodes-base.code', 'n8n-nodes-base.errorTrigger', 'n8n-nodes-base.googleSheets', 'n8n-nodes-base.set']);
+  const order = ['Error Trigger', 'Configuración', 'Construir fila de error', 'Registrar ejecución fallida'];
+  order.slice(0, -1).forEach((from, i) => assert.equal(H.connections[from].main[0][0].node, order[i + 1], from));
+  const sheet = H.nodes.find((n) => n.name === 'Registrar ejecución fallida');
+  assert.equal(sheet.parameters.sheetName.value, 'errores');
+  assert.deepEqual(Object.keys(sheet.parameters.columns.value), COLUMNS.errores);
+  assert.equal(sheet.parameters.options.cellFormat, 'RAW');
+  assert.equal(sheet.parameters.options.useAppend, true);
+  assert.deepEqual(sheet.parameters.columns.schema.map((c) => c.id), COLUMNS.errores, 'the append operation needs columns.schema');
+  assert.equal(sheet.credentials.googleSheetsOAuth2Api.id, 'REPLACE_WITH_YOUR_CREDENTIAL');
+  assert.equal(H.settings.saveDataErrorExecution, 'none');
+  const text = JSON.stringify(H);
+  assert.ok(!/gsk_[A-Za-z0-9]{10,}|Bearer\s+[A-Za-z0-9._-]{15,}|AIza[0-9A-Za-z_-]{20,}|\$env/.test(text));
+  assert.ok(H.nodes.find((n) => n.name === 'Configuración').parameters.assignments.assignments[0].value === 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE');
 });
 
 test('export: generated Code nodes contain no external dependencies', () => {

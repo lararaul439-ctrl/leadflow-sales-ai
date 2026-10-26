@@ -32,7 +32,7 @@ const HOT_AI = {
 
 const COLD = {
   full_name: 'Jorge Ibanez',
-  email: 'jorge.ibanez.demo@gmail.com',
+  email: 'jorge.ibanez@freemail-demo.example',
   message: 'Hola, estoy mirando que herramientas existen para automatizar cosas, sin ninguna prisa.',
   consent_to_contact: 'yes'
 };

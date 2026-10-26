@@ -52,11 +52,11 @@ test('normalize: required fields are enforced', () => {
 });
 
 test('normalize: invalid emails are rejected', () => {
-  const bad = ['plain', 'a@b', 'a b@c.com', 'a@@c.com', 'a..b@c.com', '.a@c.com', 'a@c..com', 'a@c.com, b@d.com', 'a@-c.com', '@c.com', 'a@c.c', 'x'.repeat(65) + '@c.com'];
+  const bad = ['plain', 'a@b', 'a b@c.example', 'a@@c.example', 'a..b@c.example', '.a@c.example', 'a@c..example', 'a@c.example, b@d.example', 'a@-c.example', '@c.example', 'a@c.c', 'x'.repeat(65) + '@c.example'];
   for (const e of bad) {
     assert.equal(norm({ ...F.HOT, email: e }).valid, false, e);
   }
-  for (const e of ['a@c.com', 'first.last+tag@sub.example.co', "o'brien@example.org"]) {
+  for (const e of ['a@c.example', 'first.last+tag@sub.example.org', "o'brien@example.org"]) {
     assert.equal(norm({ ...F.HOT, email: e }).valid, true, e);
   }
 });
@@ -322,6 +322,24 @@ test('AI validation: quotes with quotation marks, ellipsis and different case st
   assert.equal(r.signals.intent, 'ready_to_buy');
 });
 
+test('AI validation: a quote may skip words with an ellipsis, but every fragment must be in the message, in order', () => {
+  // A real model answer quoted "<start> ... <end>" and was downgraded by the strict check.
+  const spans = 'Queremos contratar vuestro servicio de automatizacion de facturas ... Podeis enviarnos una propuesta?';
+  assert.equal(val({ ...F.HOT_AI, intent_evidence: spans }).signals.intent, 'ready_to_buy');
+  assert.equal(val({ ...F.HOT_AI, intent_evidence: spans.replace(' ... ', ' … ') }).signals.intent, 'ready_to_buy');
+  const flags = (e) => val({ ...F.HOT_AI, intent_evidence: e }).flags;
+  // one fragment that is invented is enough to reject the whole quote
+  assert.ok(flags('Queremos contratar vuestro servicio de automatizacion de facturas ... y nos urge firmar hoy mismo').includes('evidencia_no_encontrada'));
+  // fragments out of order
+  assert.ok(flags('Podeis enviarnos una propuesta? ... Queremos contratar vuestro servicio de automatizacion de facturas').includes('evidencia_no_encontrada'));
+  // a fragment shorter than 4 characters proves nothing
+  assert.ok(flags('Queremos contratar vuestro servicio ... y ... Podeis enviarnos una propuesta?').includes('evidencia_no_encontrada'));
+  // more than four fragments
+  assert.ok(flags('Queremos contratar ... vuestro servicio ... de automatizacion ... de facturas ... Podeis enviarnos').includes('evidencia_no_encontrada'));
+  // nothing but ellipses
+  assert.ok(flags('... ...').includes('evidencia_no_encontrada'));
+});
+
 test('AI validation: product interest must be copied from the message', () => {
   const r = val({ ...F.HOT_AI, product_interest: 'plan premium con descuento del 40%' });
   assert.equal(r.signals.product_interest, '');
@@ -466,7 +484,7 @@ test('evaluate: cold lead becomes baja and asks for the missing information in t
   const lead = norm(F.COLD).lead;
   const r = core.evaluateAi(F.aiResponse(F.COLD_AI), lead, { now: NOW });
   assert.equal(r.leadRow.priority, 'baja');
-  assert.equal(r.leadRow.score, 7);
+  assert.equal(r.leadRow.score, 12, 'researching (7) + business e-mail domain (5); the fictional domain is not a free-mail provider');
   assert.equal(r.taskRow.task_type, 'nutrir');
   assert.equal(r.taskRow.due_at, '2026-10-29T09:00:00.000Z');
   assert.ok(r.leadRow.missing_information.includes('budget_range'));
