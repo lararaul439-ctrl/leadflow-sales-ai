@@ -32,6 +32,20 @@ Never paste keys into the workflow JSON or into the repository.
 2. Copy `.env.example` to `.env`, fill `WEBHOOK_URL` and `WEBHOOK_TOKEN` (do not commit it) and export them in your shell.
 3. Run `npm run demo:send`. Expected responses: `202` for valid leads, `422` for the invalid one.
 4. Run `npm run demo:send -- --twice` to see that the second round answers `200` with `duplicate: true` and creates no new rows.
+
+Sending a single lead without Node (Windows PowerShell). Use single quotes around the token so special characters are not expanded:
+
+```powershell
+$headers = @{ "X-Webhook-Token" = 'YOUR_TOKEN' }
+$body = @{
+  full_name = "Laura Test"
+  email = "laura.test@demo-company.example"
+  message = "We would like to hire your service and start next month. Can you send a proposal?"
+  consent_to_contact = $true
+} | ConvertTo-Json
+Invoke-WebRequest -Method Post -Uri "https://YOUR-INSTANCE.app.n8n.cloud/webhook/leadflow-sales" -Headers $headers -ContentType "application/json" -Body $body -UseBasicParsing
+```
+
 5. Open the sheet: `leads` holds every lead with status, priority, score and breakdown; `seguimiento` holds follow-up tasks with drafts; `errores` stays empty unless something failed.
 
 ## 5. Retrying failures
