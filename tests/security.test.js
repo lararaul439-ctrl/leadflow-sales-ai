@@ -506,3 +506,18 @@ test('throttle: oversized and malformed bodies are answered 413/422 and write no
   assert.equal(post(sheet, 'not an object').responded.code, 422);
   assert.equal(sheet.writes.length, 0);
 });
+
+// ------------------------------------------------------------------ upgrade path from v1.0
+test('upgrade: a row written by v1.0 (old consent column, no provenance columns) is still read correctly', () => {
+  const legacy = {
+    submission_id: 'L-aaaaaaaaaaaa-bbbbbbbbbb', lead_id: 'L-aaaaaaaaaaaa', status: 'error_ia', retry_count: 1,
+    full_name: 'Test Person', email: 'test.person@demo-company.example', message: 'We would like a proposal for next month.',
+    flags: '', consent_to_contact: 'sí'
+  };
+  const yes = core.rowToLead(legacy);
+  assert.equal(yes.consent_to_contact, true);
+  assert.equal(yes.consent_evidence, 'declared_only');
+  const no = core.rowToLead(Object.assign({}, legacy, { consent_to_contact: 'no' }));
+  assert.equal(no.consent_to_contact, false);
+  assert.equal(no.consent_evidence, 'none');
+});

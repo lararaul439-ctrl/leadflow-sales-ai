@@ -1,6 +1,6 @@
 # Scoring rules
 
-The score is computed in code (`computeScore` in `src/lead-core.js`) from verified signals. The language model never sees these rules and cannot change the result.
+The score is computed in code (`computeScore` in `src/lead-core.js`) from verified signals. The language model never sees these rules and cannot change the result. Consent is **not** an input: it decides whether a task is created, never how high the lead ranks.
 
 ## Points (maximum 100)
 
@@ -30,11 +30,15 @@ The score is clamped to 0-100. Budget tiers assume the currency written in the m
 
 - Budget, timeframe and company size filled in the form always win over the model.
 - Model signals count only if the model quoted the supporting text and the quote exists in the message. Otherwise the signal becomes `unknown` and the lead is flagged `evidencia_no_encontrada` for human review.
-- If the message looks like a prompt-injection attempt, the model intent is discarded and only form values are used.
+- If the message looks like a prompt-injection attempt, the model intent is discarded (it becomes `unknown`) and only form values are used.
 
 ## Human review flags
 
-Any of these sets `human_review_required` and turns the task type into `revisar_manual`: `posible_inyeccion`, `evidencia_no_encontrada`, `cifra_no_verificada`, `contenido_no_verificado`, `confianza_baja`, `datos_pago_enmascarados`, `documento_enmascarado`, `email_desechable`, `intencion_spam`, `muchos_enlaces`, `html_oculto`, `ia_enum_invalido`, `producto_no_verificado`.
+Any of these sets `human_review_required` and turns the task type into `revisar_manual` (task status `revision_humana`): `posible_inyeccion`, `evidencia_no_encontrada`, `cifra_no_verificada`, `contenido_no_verificado`, `confianza_baja`, `datos_pago_enmascarados`, `documento_enmascarado`, `email_desechable`, `intencion_spam`, `muchos_enlaces`, `html_oculto`, `ia_enum_invalido`, `producto_no_verificado`, `caracteres_ocultos`, `ia_campos_inesperados`.
+
+Informational flags that do not force a review by themselves: `contacto_repetido` (same e-mail, new message), `campo_truncado`, `mensaje_truncado`, `formula_like` (the text starts with a spreadsheet formula character and was neutralised).
+
+`posible_inyeccion` is raised by the analysis described in [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (LF-06). Detection is best effort; its only effect is to route the lead to a person and discard the model's intent.
 
 ## Worked example
 
