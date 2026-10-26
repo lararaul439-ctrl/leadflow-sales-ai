@@ -48,7 +48,7 @@ function resolveOrder(regions, roots) {
 function buildCode(glueFile) {
   const regions = parseRegions(fs.readFileSync(path.join(ROOT, 'src/lead-core.js'), 'utf8'));
   const glue = fs.readFileSync(path.join(ROOT, 'src/nodes', glueFile), 'utf8');
-  const uses = (glue.match(/^\/\/#uses\s+(.*)$/m) || [, ''])[1].split(',').map((s) => s.trim()).filter(Boolean);
+  const uses = (glue.match(/^\/\/#uses\s+(.*)$/m) || ['', ''])[1].split(',').map((s) => s.trim()).filter(Boolean);
   const order = resolveOrder(regions, uses);
   const libs = order.map((n) => regions[n].body.join('\n').trim()).join('\n\n');
   const glueBody = glue.replace(/^\/\/#uses.*\n/m, '').trim();
@@ -118,6 +118,11 @@ const respondNode = (name, body, code, position) => ({
   name, type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.5, position,
   parameters: { respondWith: 'json', responseBody: body, options: { responseCode: code } }
 });
+const modeNode = (name, value, position) => ({
+  name, type: 'n8n-nodes-base.set', typeVersion: 3.4, position,
+  notes: 'Constant. Which trigger fired decides the mode, never the content of the request.',
+  parameters: { mode: 'manual', includeOtherFields: true, options: {}, assignments: { assignments: [{ id: uid('mode-' + value).slice(0, 18), name: 'mode', value, type: 'string' }] } }
+});
 const sticky = (name, content, position, width, height) => ({ name, type: 'n8n-nodes-base.stickyNote', typeVersion: 1, position, parameters: { content, width, height } });
 
 // ------------------------------------------------------------------ workflow
@@ -132,6 +137,10 @@ function buildWorkflow(opts) {
       notes: 'POST JSON. Requires the header configured in the "LeadFlow webhook token" credential.'
     },
     { name: 'Reintentar fallidos', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 560], parameters: {}, notes: 'Manual, bounded retry of failed or stuck leads (max ' + CONFIG.maxRetries + ' attempts each).' },
+    // The processing mode is a constant set by the wiring. It is never derived from request data, so a caller
+    // cannot steer a webhook request into the manual retry branch (which re-processes stored leads and spends AI calls).
+    modeNode('Modo: envío web', 'webhook', [130, 140]),
+    modeNode('Modo: reintento', 'retry', [130, 420]),
     {
       name: 'Configuración', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [260, 280],
       notes: 'The only place to paste the Google Sheet ID.',
@@ -139,7 +148,6 @@ function buildWorkflow(opts) {
         mode: 'manual', includeOtherFields: true, options: {},
         assignments: { assignments: [
           { id: uid('cfg-sheet').slice(0, 18), name: 'sheet_id', value: 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE', type: 'string' },
-          { id: uid('cfg-mode').slice(0, 18), name: 'mode', value: '={{ $json.body !== undefined ? "webhook" : "retry" }}', type: 'string' },
           { id: uid('cfg-rate-window').slice(0, 18), name: 'rate_window_seconds', value: CONFIG.rate.windowSeconds, type: 'number' },
           { id: uid('cfg-rate-max').slice(0, 18), name: 'rate_max_requests', value: CONFIG.rate.maxRequests, type: 'number' }
         ] }
@@ -223,8 +231,10 @@ function buildWorkflow(opts) {
 
   const link = (from, to, outIndex, inIndex) => ({ from, to, out: outIndex || 0, in: inIndex || 0 });
   const links = [
-    link('Webhook de leads', 'Configuración'),
-    link('Reintentar fallidos', 'Configuración'),
+    link('Webhook de leads', 'Modo: envío web'),
+    link('Modo: envío web', 'Configuración'),
+    link('Reintentar fallidos', 'Modo: reintento'),
+    link('Modo: reintento', 'Configuración'),
     link('Configuración', '¿Envío web?'),
     link('¿Envío web?', 'Validar y normalizar', 0),
     link('¿Envío web?', 'Leer filas para reintento', 1),

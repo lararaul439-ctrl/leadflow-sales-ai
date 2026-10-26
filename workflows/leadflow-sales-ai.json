@@ -46,15 +46,61 @@
         "assignments": {
           "assignments": [
             {
+              "id": "b3e3a8b5-683b-4de6",
+              "name": "mode",
+              "value": "webhook",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "94b5200c-f631-4327-a448-cea33cee414a",
+      "name": "Modo: envío web",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        130,
+        140
+      ],
+      "notes": "Constant. Which trigger fired decides the mode, never the content of the request."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "07fdfbe4-1657-4174",
+              "name": "mode",
+              "value": "retry",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "ebf5255e-ed06-4c6f-af36-05b20e42269b",
+      "name": "Modo: reintento",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        130,
+        420
+      ],
+      "notes": "Constant. Which trigger fired decides the mode, never the content of the request."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
               "id": "7611258f-f11f-4abe",
               "name": "sheet_id",
               "value": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
-              "type": "string"
-            },
-            {
-              "id": "af368e25-39a3-4b86",
-              "name": "mode",
-              "value": "={{ $json.body !== undefined ? \"webhook\" : \"retry\" }}",
               "type": "string"
             },
             {
@@ -1048,6 +1094,17 @@
       "main": [
         [
           {
+            "node": "Modo: envío web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo: envío web": {
+      "main": [
+        [
+          {
             "node": "Configuración",
             "type": "main",
             "index": 0
@@ -1056,6 +1113,17 @@
       ]
     },
     "Reintentar fallidos": {
+      "main": [
+        [
+          {
+            "node": "Modo: reintento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo: reintento": {
       "main": [
         [
           {
