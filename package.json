@@ -15,6 +15,7 @@
     "verify": "npm run check && npm run lint && npm test",
     "audit:deps": "npm audit --audit-level=low",
     "demo:send": "node scripts/send-demo.js",
-    "demo:local": "node scripts/demo-local.js"
+    "demo:local": "node scripts/demo-local.js",
+    "docs:diagrams": "node scripts/render-diagrams.js"
   }
 }

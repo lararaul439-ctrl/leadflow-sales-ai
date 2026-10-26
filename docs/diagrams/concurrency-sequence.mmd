@@ -1,0 +1,22 @@
+%% Claim arbitration between two simultaneous identical requests (Google Sheets has no atomic upsert).
+sequenceDiagram
+  autonumber
+  participant A as Execution A
+  participant B as Execution B
+  participant S as Sheet: claims
+  participant L as Sheet: leads
+  A->>L: look up submission (nothing yet)
+  B->>L: look up submission (nothing yet)
+  A->>S: append claim A
+  B->>S: append claim B
+  A->>S: read claims for this submission
+  B->>S: read claims for this submission
+  Note over A,B: Both see [A, B]. The first row in sheet order wins.
+  A->>L: write status = recibido
+  A-->>A: HTTP 202, call the model, score, save
+  B->>L: look up again
+  alt A already stored the lead
+    B-->>B: HTTP 200 duplicate
+  else A has not stored it yet (or died)
+    B-->>B: HTTP 503 in progress, retry in 30 s
+  end
