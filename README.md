@@ -1,5 +1,7 @@
 # LeadFlow Sales AI
 
+[![CI](https://github.com/lararaul439-ctrl/leadflow-sales-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/lararaul439-ctrl/leadflow-sales-ai/actions/workflows/ci.yml) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![n8n](https://img.shields.io/badge/built%20with-n8n-ea4b71)
+
 An n8n workflow that receives inbound sales leads from a web form, validates and de-duplicates them, extracts sales signals with an LLM, **scores them with explicit business rules**, and queues follow-up tasks with e-mail drafts for **human approval**. Nothing is ever sent automatically.
 
 > Status: the workflow is built, imported into n8n and covered by 85 automated tests that run the real workflow code against an in-memory simulator. The workflow has been run end to end in n8n against the real Groq API and a real Google Sheet with fictional leads; the published webhook URL with token authentication and the retry path after a real failure have **not** been verified yet; see [docs/TEST_REPORT.md](docs/TEST_REPORT.md) for exactly what is and is not proven.
