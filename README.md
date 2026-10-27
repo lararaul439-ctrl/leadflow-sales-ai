@@ -51,7 +51,11 @@ The business logic lives in one plain JavaScript file, [`src/lead-core.js`](src/
 
 ## Screenshots and evidence
 
-No screenshot of the n8n editor or Google Sheets is included: none could be taken when this version was produced. These images are rendered from real outputs and each one says what is simulated.
+One real capture is included: the Google Sheet tab written by the live run of v1.1 on n8n Cloud (fictional leads). No capture of the n8n editor is included yet. The other images are rendered from real outputs and each one says what is simulated.
+
+![Google Sheet tab written by a live n8n Cloud run: nine fictional leads with status, priority, score, intent, timeframe and budget range](docs/images/sheet-live-leads.png)
+
+*Real capture of the `v11_leads` tab after the live run described in [docs/LIVE_VERIFICATION.md](docs/LIVE_VERIFICATION.md). Some columns are hidden so the text stays readable. Taken through a low-resolution browser pane and enlarged 2x, so it is soft.*
 
 | | |
 | --- | --- |

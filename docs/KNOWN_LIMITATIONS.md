@@ -34,4 +34,4 @@ Honest list of what v1.1 does not do or has not proven. Security-related items h
 
 23. Dependabot security updates, branch protection and private vulnerability reporting are repository settings that need the owner (LF-14).
 24. The CI badge shows real results only once the workflow has run on the default branch. CodeQL may conflict with GitHub's *default setup* if it is enabled.
-25. The images in `docs/images/` are generated or rendered from real outputs. None is a screenshot of the n8n editor or of Google Sheets, because no browser was available when they were produced. See [docs/images/README.md](images/README.md).
+25. Apart from one capture of a Google Sheet tab written by the live run (`sheet-live-leads.png`), the images in `docs/images/` are generated or rendered from real outputs. None is a screenshot of the n8n editor, because the browser pane available when the capture was taken was too small for a legible one. See [docs/images/README.md](images/README.md).

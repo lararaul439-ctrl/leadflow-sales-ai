@@ -51,7 +51,11 @@ La lógica de negocio vive en un único archivo JavaScript, [`src/lead-core.js`]
 
 ## Capturas y evidencias
 
-No se incluye ninguna captura del editor de n8n ni de Google Sheets: no fue posible tomarlas al producir esta versión. Estas imágenes se renderizan a partir de salidas reales y cada una indica qué parte es simulada.
+Se incluye una captura real: la pestaña de Google Sheets escrita por la ejecución en vivo de la v1.1 en n8n Cloud (leads ficticios). Todavía no se incluye ninguna captura del editor de n8n. El resto de imágenes se renderizan a partir de salidas reales y cada una indica qué parte es simulada.
+
+![Pestaña de Google Sheets escrita por una ejecución real en n8n Cloud: nueve leads ficticios con estado, prioridad, puntuación, intención, plazo y rango de presupuesto](docs/images/sheet-live-leads.png)
+
+*Captura real de la pestaña `v11_leads` tras la ejecución en vivo descrita en [docs/LIVE_VERIFICATION.md](docs/LIVE_VERIFICATION.md). Algunas columnas están ocultas para que el texto se lea. Se tomó con un panel de navegador de baja resolución y se amplió 2x, por eso es algo borrosa.*
 
 | | |
 | --- | --- |

@@ -26,6 +26,10 @@ The unit and simulation suites run the real workflow code against in-memory fake
 | 144 | Retry trigger on a hand-made `error_ia` row | Re-analysed, became `tarea_creada`, one task created, the earlier `error_ia` kept in the history. |
 | 145 to 147 | **Three identical submissions** a few seconds apart | All three passed the history lookup before any row existed and each appended a claim. Exactly **one** won; it stored the lead, called the model once and created one task. One loser found the winner's row ("in progress"), the other found no row yet ("winner pending"); neither wrote anything. |
 
+![The v11_leads tab after the live runs](images/sheet-live-leads.png)
+
+*Real capture of the test tab (some columns hidden for legibility; see [images/README.md](images/README.md)).*
+
 Result of the last case: one lead row, one task row, one model call. The arbitration decided by sheet order, not by timestamp: the claim with the earliest `claimed_at` landed second in the sheet and lost.
 
 ## Findings (all fixed in the repository)
