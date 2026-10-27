@@ -16,7 +16,7 @@ Security hardening and professionalisation. The workflow export changed shape: *
 - Spreadsheet formula injection: cells are neutralised on write and restored on read.
 - Error hygiene: provider errors reduced to fixed fields, secrets and addresses scrubbed, text bounded, optional error-handler workflow, 180 s execution timeout (the n8n Cloud maximum), successful executions not stored.
 - Best-effort throttle and a per-contact limit.
-- Duplicate arbitration for simultaneous submissions through a `claims` tab (insert, then verify). Proven in simulation only; see [docs/CONCURRENCY.md](docs/CONCURRENCY.md).
+- Duplicate arbitration for simultaneous submissions through a `claims` tab (insert, then verify). Proven in simulation and in one small live run (three identical submissions, one winner); not a guarantee, see [docs/CONCURRENCY.md](docs/CONCURRENCY.md).
 
 ### Added
 
